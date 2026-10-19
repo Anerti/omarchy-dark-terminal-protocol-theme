@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Build backgrounds/1-omarchy-logo.jpg: the Vault-Tec logo wallpaper it replaces, redone
+# with the merged logo, OMARCHY and an Omarchy adage. Each element is fitted to the box
+# the original's took (measured on that 1920x1080 wallpaper, no longer shipped) and
+# centred where it sat. Fonts are the closest open ones: PT Sans Narrow Bold for the
+# wordmark, Yellowtail for the script line. Needs rsvg-convert and magick.
+
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+out="$root/backgrounds/1-omarchy-logo.jpg"
+green="#2cae2e"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# Render text large, trim it to its ink, then scale it to a height: the original's ink
+# height for the wordmark, a little more for Yellowtail, whose tall loops leave its
+# lowercase shorter than the original script's at the same box.
+text() {
+  local font="$1" words="$2" height="$3" file="$4"
+  magick -background none -fill "$green" -font "$font" -pointsize 400 label:"$words" \
+    -trim +repage -resize "x$height" "$file"
+}
+
+rsvg-convert -h 134 "$root/logo/vaulttec-omarchy.svg" -o "$tmp/logo.png"
+text "$root/logo/fonts/PTSansNarrow-Bold.ttf" "OMARCHY" 33 "$tmp/name.png"
+text "$root/logo/fonts/Yellowtail-Regular.ttf" "The malleable OS for the age of agents" 26 "$tmp/adage.png"
+
+# Centre of each element's box in the original: logo (959,539), wordmark (960,645),
+# script line (960,700).
+place() {
+  local file="$1" cx="$2" cy="$3"
+  local w h
+  read -r w h < <(magick identify -format "%w %h" "$file")
+  printf '%s -geometry +%d+%d -composite ' "$file" $((cx - w / 2)) $((cy - h / 2))
+}
+
+# shellcheck disable=SC2046
+magick -size 1920x1080 xc:black \
+  $(place "$tmp/logo.png" 959 539) \
+  $(place "$tmp/name.png" 960 645) \
+  $(place "$tmp/adage.png" 960 700) \
+  -quality 95 "$out"
+
+echo "$out"

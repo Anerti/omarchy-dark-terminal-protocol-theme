@@ -1,0 +1,141 @@
+# Dark Terminal Protocol — Omarchy shell surfaces.
+# Values are lifted from the HTML mockup's design tokens (assets/css/fallout.css):
+#   --fg #2cae2e, --fg-bright #d6ffe3, --fg-soft #7c9480, --accent #ffcc33,
+#   --urgent #ff5a3c, --surface-solid #081d11, --line #114116 (opaque),
+#   --line-strong #1d7221 (opaque), --sel-inverse-fg #04160b.
+
+[bar]
+background       = "#04140b"
+background-alpha = 0.9
+text             = "#2cae2e"
+active           = "#ff5a3c"
+scale-with-font  = true
+size-horizontal  = 34
+size-vertical    = 34
+
+[hyprland]
+active-border            = "#2cae2e"
+active-border-foreground = "#2cae2e"
+
+[controls]
+normal-color        = "#2cae2e"
+normal-fill-alpha   = 0.0
+normal-border       = "#2cae2e"
+normal-border-width = 1
+normal-border-alpha = 0.28
+
+hover-cursor-color        = "#d6ffe3"
+hover-cursor-fill-alpha   = 0.06
+hover-cursor-border       = "#2cae2e"
+hover-cursor-border-width = 1
+hover-cursor-border-alpha = 0.6
+
+focus-color        = "#d6ffe3"
+focus-fill-alpha   = 0.06
+focus-border       = "#d6ffe3"
+focus-border-width = 1
+focus-border-alpha = 1.0
+
+selected-color        = "#2cae2e"
+selected-fill-alpha   = 0.4
+selected-border       = "#2cae2e"
+selected-border-width = 1
+selected-border-alpha = 0.6
+
+pressed-fill-alpha   = 0.22
+selection-fill-alpha = 0.35
+
+[spacing]
+scale = 1.0
+scale-with-font = true
+
+[font]
+base-size = 12
+
+[popups]
+background       = "#081d11"
+background-alpha = 1.0
+text             = "#2cae2e"
+border           = "#1d7221"
+border-alpha     = 1.0
+border-width     = 1
+
+[tooltip]
+background       = "#081d11"
+background-alpha = 0.97
+text             = "#d6ffe3"
+border           = "#1d7221"
+border-alpha     = 1.0
+border-width     = 1
+
+[notifications]
+background       = "#071a0f"
+background-alpha = 0.78
+text             = "#2cae2e"
+border           = "rgba(2cae2eff) rgba(114116ff) 0deg"
+border-alpha     = 1.0
+border-width     = "1 1 1 4"
+countdown        = "#2cae2e"
+
+[launcher]
+background                = "#081d11"
+background-alpha          = 0.95
+text                      = "#2cae2e"
+border                    = "#1d7221"
+border-alpha              = 1.0
+scrim                     = "#020a05"
+scrim-alpha               = 0.6
+selected-background       = "#2cae2e"
+selected-background-alpha = 1.0
+selected-text             = "#04160b"
+selected-border           = "#2cae2e"
+selected-border-alpha     = 1.0
+
+[menu]
+background                = "#081d11"
+background-alpha          = 1.0
+text                      = "#2cae2e"
+border                    = "#1d7221"
+border-alpha              = 1.0
+scrim                     = "#020a05"
+scrim-alpha               = 0.6
+selected-background       = "#2cae2e"
+selected-background-alpha = 1.0
+selected-text             = "#04160b"
+selected-border           = "#2cae2e"
+selected-border-alpha     = 1.0
+
+[polkit]
+background       = "#081d11"
+background-alpha = 1.0
+text             = "#2cae2e"
+text-error       = "#ff5a3c"
+border           = "#1d7221"
+border-error     = "#ff5a3c"
+border-alpha     = 1.0
+scrim            = "#020a05"
+scrim-alpha      = 0.6
+accent           = "#2cae2e"
+
+[lock]
+background       = "#04120a"
+background-alpha = 0.72
+text             = "#d6ffe3"
+placeholder      = "#7c9480"
+text-error       = "#ff5a3c"
+border           = "#1d7221"
+border-active    = "#2cae2e"
+border-error     = "#ff5a3c"
+border-alpha     = 1.0
+border-width     = 3
+selection        = "#2cae2e"
+selection-alpha  = 0.45
+
+[image-picker]
+scrim                   = "#020a05"
+scrim-alpha             = 0.92
+text                    = "#2cae2e"
+selected-border         = "#2cae2e"
+selected-border-alpha   = 1.0
+unselected-border       = "#2cae2e"
+unselected-border-alpha = 0.28

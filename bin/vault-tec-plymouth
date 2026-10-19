@@ -1,0 +1,135 @@
+#!/bin/bash
+
+# Install or remove the Vault-Tec boot screen: the Plymouth theme built by
+# tools/build-plymouth from boot.html, shown from power-on to the LUKS passphrase and
+# on until the session starts. Asks for sudo, then rebuilds the initramfs.
+#
+# Its footer names the Omarchy version, the kernel and the hostname. An initcpio hook
+# redraws it into every initramfs for the kernel that initramfs boots, and a pacman hook
+# rebuilds the initramfs when Omarchy itself is upgraded, so both stay current.
+#
+# test plays it on the console you run it from (Ctrl+Alt+F3, log in; not inside the
+# desktop, which holds the screen): passphrase "omarchy", anything else is refused.
+#
+# Usage: vault-tec-plymouth [install|uninstall|test]   (default: install)
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+THEME=/usr/share/plymouth/themes/vault-tec
+INITCPIO_HOOK=/etc/initcpio/install/vault-tec-plymouth
+INITCPIO_CONF=/etc/mkinitcpio.conf.d/zz-vault-tec-plymouth.conf
+PACMAN_HOOK=/etc/pacman.d/hooks/vault-tec-plymouth.hook
+
+rebuild() {
+  if command -v limine-mkinitcpio >/dev/null; then
+    sudo limine-mkinitcpio
+  else
+    sudo mkinitcpio -P
+  fi
+}
+
+# The passphrase is typed on this screen, so install only a complete build: the script
+# (written last by tools/build-plymouth) and every image it names.
+check_build() {
+  local dir=$ROOT/plymouth/vault-tec file missing=()
+  if [[ ! -f $dir/vault-tec.script ]]; then
+    echo "plymouth/vault-tec is missing or incomplete: run tools/build-plymouth first" >&2
+    exit 1
+  fi
+  for file in vault-tec.plymouth render-footer footer.png \
+    $(grep -o '"[A-Za-z0-9_-]*\.png"' "$dir/vault-tec.script" | tr -d '"' | sort -u); do
+    [[ -s $dir/$file ]] || missing+=("$file")
+  done
+  if ((${#missing[@]})); then
+    echo "plymouth/vault-tec is incomplete (${missing[*]}): run tools/build-plymouth again" >&2
+    exit 1
+  fi
+}
+
+install() {
+  check_build
+
+  sudo install -d -m 0755 "$THEME"
+  sudo rsync -a --delete --chown=root:root --chmod=D755,F644 "$ROOT/plymouth/vault-tec/" "$THEME/"
+  sudo chmod 0755 "$THEME/render-footer"
+
+  sudo install -D -m 0644 /dev/stdin "$INITCPIO_HOOK" <<'EOF'
+#!/bin/bash
+
+# Vault-Tec boot screen: draw the footer for the kernel this initramfs boots.
+build() {
+  local theme=/usr/share/plymouth/themes/vault-tec footer
+
+  [[ $(plymouth-set-default-theme) == vault-tec && -x $theme/render-footer ]] || return 0
+  footer=$(mktemp)
+  if "$theme/render-footer" "$footer" "$KERNELVERSION"; then
+    add_file "$footer" "$theme/footer.png" 644
+  else
+    warning "vault-tec-plymouth: footer not redrawn, keeping the installed one"
+  fi
+  rm -f "$footer"
+}
+
+help() {
+  echo "Redraws the Vault-Tec Plymouth footer (Omarchy, kernel, hostname) per initramfs."
+}
+EOF
+
+  # After plymouth, which copies the theme the footer is drawn over.
+  echo 'HOOKS+=(vault-tec-plymouth)' | sudo install -D -m 0644 /dev/stdin "$INITCPIO_CONF"
+
+  sudo install -D -m 0644 /dev/stdin "$PACMAN_HOOK" <<'EOF'
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = omarchy
+Target = omarchy-dev
+
+[Action]
+Description = Redrawing the Vault-Tec boot screen footer...
+When = PostTransaction
+Exec = /bin/sh -c '[ "$(plymouth-set-default-theme)" = vault-tec ] || exit 0; if command -v limine-mkinitcpio >/dev/null; then limine-mkinitcpio; else mkinitcpio -P; fi'
+EOF
+
+  sudo plymouth-set-default-theme vault-tec
+  rebuild
+}
+
+uninstall() {
+  sudo rm -f "$INITCPIO_HOOK" "$INITCPIO_CONF" "$PACMAN_HOOK"
+  if [[ $(plymouth-set-default-theme) == vault-tec ]]; then
+    sudo plymouth-set-default-theme omarchy
+  fi
+  sudo rm -rf "$THEME"
+  rebuild
+}
+
+test_run() {
+  if [[ $(plymouth-set-default-theme) != vault-tec ]]; then
+    echo "The vault-tec theme is not installed: run vault-tec-plymouth install first" >&2
+    exit 1
+  fi
+  local log=/tmp/plymouth-vault-tec.log
+  sudo plymouthd --mode=boot --tty="$(tty)" --debug --debug-file="$log"
+  # Give the console back however the test ends: Ctrl+C, a failed step or the end.
+  trap 'sudo plymouth quit 2>/dev/null || true' EXIT
+  sudo plymouth show-splash
+  # As the encrypt hook asks: plymouth re-prompts until the command accepts it.
+  sudo plymouth ask-for-password --number-of-tries=3 --command="grep -qx omarchy" || true
+  sleep 2
+  sudo plymouth update-root-fs --new-root-dir=/
+  sleep 9
+  echo "Debug log: $log"
+}
+
+case "${1:-install}" in
+  install) install ;;
+  uninstall) uninstall ;;
+  test) test_run ;;
+  *)
+    echo "Usage: vault-tec-plymouth [install|uninstall|test]" >&2
+    exit 1
+    ;;
+esac

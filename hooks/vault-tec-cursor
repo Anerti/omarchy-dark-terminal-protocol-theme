@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Use the VaultTec cursors while the dark-terminal-protocol theme is active, and put the
+# previous cursor theme back when another theme is set. Installed as a theme-set
+# hook (theme slug in $1) and a post-boot hook (no argument: read the current theme).
+
+THEME="${1:-$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null)}"
+SAVED="$HOME/.local/state/vault-tec/cursor-previous"
+SIZE="${XCURSOR_SIZE:-24}"
+
+current=$(gsettings get org.gnome.desktop.interface cursor-theme 2>/dev/null | tr -d "'")
+
+use() {
+  gsettings set org.gnome.desktop.interface cursor-theme "$1"
+  hyprctl setcursor "$1" "$SIZE" >/dev/null
+}
+
+if [[ $THEME == *dark-terminal-protocol* && -d $HOME/.local/share/icons/VaultTec ]]; then
+  if [[ $current != VaultTec ]]; then
+    mkdir -p "$(dirname "$SAVED")"
+    echo "${current:-default}" > "$SAVED"
+  fi
+  use VaultTec
+elif [[ $current == VaultTec ]]; then
+  use "$(cat "$SAVED" 2>/dev/null || echo default)"
+fi

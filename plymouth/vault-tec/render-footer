@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Draw the boot screen's footer: OMARCHY <version> · KERNEL <version> · <HOSTNAME>
+# over COPYRIGHT 2025 - <year> OMARCHY, as boot.html sets its .robco footer.
+# The image is the band y 1000-1080 of the 1920x1080 grid the script lays out.
+#
+# Usage: render-footer <out.png> [kernel-release]
+# The kernel release defaults to the running one; the initcpio hook passes the one the
+# initramfs is being built for. Runs as root from mkinitcpio: reads only pacman's
+# database and /etc/hostname, needs magick.
+
+set -euo pipefail
+
+out=$1
+kernel=${2:-$(uname -r)}
+dir="$(cd "$(dirname "$0")" && pwd)"
+font="$dir/ShareTechMono-Regular.ttf"
+
+version=
+for package in omarchy-dev omarchy; do
+  version=$(pacman -Q "$package" 2>/dev/null | awk '{ print $2 }') && [[ -n $version ]] && break
+done
+host=$(tr -d '[:space:]' </etc/hostname 2>/dev/null || true)
+
+parts=()
+[[ -n $version ]] && parts+=("OMARCHY ${version%-*}")
+parts+=("KERNEL ${kernel%%-*}")
+[[ -n $host ]] && parts+=("$host")
+line=${parts[0]}
+for part in "${parts[@]:1}"; do line+="  ·  $part"; done
+line=${line^^}
+
+# .robco: 0.74rem Share Tech Mono, 0.24em tracking, line-height 1.8 from y 1019.4,
+# #2cae2e at .92 with a 6px rgba(44,174,46,.35) glow. Tracking also trails the last
+# letter, which moves the ink half a step left of centre.
+size=11.84
+track=2.84
+text() {
+  magick -background none -fill "#2cae2e" -font "$font" -pointsize "$size" -kerning "$track" \
+    label:"$1" -gravity center -extent "%[fx:w+24]x32" PNG32:-
+}
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+text "$line" >"$tmp/1.png"
+text "COPYRIGHT 2025 - $(date +%Y) OMARCHY" >"$tmp/2.png"
+
+place() {
+  local file=$1 cy=$2 w h
+  read -r w h < <(magick identify -format "%w %h" "$file")
+  printf '%s -geometry +%d+%d -composite ' "$file" \
+    "$(awk -v w="$w" -v t="$track" 'BEGIN { printf "%d", 960 - t / 2 - w / 2 + 0.5 }')" \
+    "$(awk -v h="$h" -v c="$cy" 'BEGIN { printf "%d", c - h / 2 + 0.5 }')"
+}
+
+# shellcheck disable=SC2046
+magick -size 1920x80 xc:none $(place "$tmp/1.png" 30.0) $(place "$tmp/2.png" 51.3) "$tmp/text.png"
+magick "$tmp/text.png" \
+  \( +clone -channel A -blur 0x3 -evaluate multiply 0.35 +channel \) \
+  -swap 0,1 -compose over -composite \
+  -channel A -evaluate multiply 0.92 +channel \
+  PNG32:"$out"

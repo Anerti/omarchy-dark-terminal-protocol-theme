@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# Install, update or remove the Vault-Tec shell plugins (Pip-Boy menu, ...).
+# The shell restarts only when a plugin actually changed, and a new plugin is enabled
+# once the restarted shell answers again. A plugin is enabled only on its first install,
+# so updates keep plugins you disabled off.
+# Usage: vault-tec-plugins [install|uninstall] [plugin-id...]   (default: install, every plugin)
+
+SRC="$(cd "$(dirname "$0")/../plugins" && pwd)"
+DEST="$HOME/.config/omarchy/plugins"
+
+plugin_ids() {
+  if (($#)); then
+    printf '%s\n' "$@"
+  else
+    for dir in "$SRC"/*/; do basename "$dir"; done
+  fi
+}
+
+# Restart the shell and wait until it lists its plugins again, so enabling one does not
+# race its start-up.
+restart_shell() {
+  omarchy restart shell || return
+  for _ in {1..20}; do
+    sleep 0.5
+    [[ $(omarchy plugin list --json 2>/dev/null || echo '[]') != "[]" ]] && return
+  done
+  echo "The shell did not come back after its restart" >&2
+  return 1
+}
+
+install() {
+  mkdir -p "$DEST"
+  local fresh=() changed=0 id
+  for id in $(plugin_ids "$@"); do
+    [[ -d $SRC/$id ]] || { echo "No plugin $id in $SRC" >&2; exit 1; }
+  done
+  for id in $(plugin_ids "$@"); do
+    [[ -e $DEST/$id ]] || fresh+=("$id")
+    [[ -n $(rsync -a --delete --itemize-changes "$SRC/$id/" "$DEST/$id/") ]] && changed=1
+  done
+  ((changed)) || return 0
+  restart_shell || exit 1
+  for id in "${fresh[@]}"; do omarchy plugin enable "$id"; done
+}
+
+uninstall() {
+  local removed=0 id
+  for id in $(plugin_ids "$@"); do
+    if [[ -e $DEST/$id ]]; then
+      omarchy plugin remove "$id" --yes
+      removed=1
+    fi
+  done
+  ((removed)) || return 0
+  omarchy restart shell
+}
+
+case "${1:-install}" in
+  install) shift; install "$@" ;;
+  uninstall) shift; uninstall "$@" ;;
+  *)
+    echo "Usage: vault-tec-plugins [install|uninstall] [plugin-id...]" >&2
+    exit 1
+    ;;
+esac

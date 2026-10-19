@@ -1,0 +1,360 @@
+# Dark Terminal Protocol boot screen: boot.html as a Plymouth script.
+#
+# Lock stage: emblem, wordmark and the passphrase field (dots, blinking block,
+# shake and red border on a refused passphrase, green when it is accepted). Init stage:
+# Vault Boy, the progress bar and INITIALIZING SYSTEM... until the session starts.
+# Shutdown and reboot show the emblem only.
+#
+# Every piece is cut from the mockup rendered at 1920x1080 (tools/build-plymouth); the
+# layout block below says where each one sat. Other screens get the same layout scaled
+# around the centre. Template: plymouth/src/vault-tec.script.
+
+#@LAYOUT@
+
+TICKS = 50;  # refresh rate of the script plugin
+
+#----------------------------------------- Geometry --------------------------------
+
+fun flag(condition) {
+  if (condition) return 1;
+  return 0;
+}
+
+global.sw = Window.GetWidth();
+global.sh = Window.GetHeight();
+global.s = Math.Min(global.sw / 1920, global.sh / 1080);
+
+fun px(x) { return global.sw / 2 + (x - 960) * global.s; }
+fun py(y) { return global.sh / 2 + (y - 540) * global.s; }
+
+fun load(file) {
+  image = Image(file);
+  if (global.s != 1)
+    image = image.Scale(Math.Int(image.GetWidth() * global.s + 0.5), Math.Int(image.GetHeight() * global.s + 0.5));
+  return image;
+}
+
+fun piece(file, l, z) {
+  sprite = Sprite(load(file));
+  sprite.SetPosition(px(l.x), py(l.y), z);
+  return sprite;
+}
+
+#----------------------------------------- Backdrop and CRT --------------------------------
+
+Window.SetBackgroundTopColor(0.008, 0.039, 0.020);
+Window.SetBackgroundBottomColor(0.008, 0.039, 0.020);
+
+background = Sprite(Image("background.png").Scale(global.sw, global.sh));
+background.SetPosition(0, 0, -100);
+
+vignette = Sprite(Image("vignette.png").Scale(global.sw, global.sh));
+vignette.SetPosition(0, 0, 900);
+
+# Scanlines keep their 4px pitch at any height: the strip is tiled, not stretched.
+scan.image = Image("scanlines.png").Scale(global.sw, 40);
+for (row = 0; row * 40 < global.sh; row++) {
+  scan.sprite[row] = Sprite(scan.image);
+  scan.sprite[row].SetPosition(0, row * 40, 901);
+}
+
+# The rolling beam: 16% of the screen tall, from 18% above it down 8.5 of its heights in 8s.
+beam.h = global.sh * 0.16;
+beam.sprite = Sprite(Image("beam.png").Scale(global.sw, Math.Int(beam.h + 0.5)));
+beam.sprite.SetPosition(0, -global.sh * 0.18, 902);
+
+termlink = Sprite(load("termlink.png"));
+termlink.SetPosition(px(layout.termlink.x), layout.termlink.y * global.s, 10);
+
+# footer.png is the band y 1000-1080 of the grid, redrawn by render-footer with the
+# versions of the system the initramfs was built for.
+footer = Sprite(load("footer.png"));
+footer.SetPosition(px(0), global.sh - 80 * global.s, 10);
+
+#----------------------------------------- Lock stage --------------------------------
+
+emblem = piece("emblem.png", layout.emblem, 20);
+wordmark = piece("wordmark.png", layout.wordmark, 20);
+lock = piece("lock.png", layout.lock, 20);
+verify = piece("verify.png", layout.verify, 20);
+
+field.image["focus"] = load("field.png");
+field.image["error"] = load("field-error.png");
+field.image["ok"] = load("field-ok.png");
+field.image["checking"] = field.image["focus"];
+field.sprite = Sprite(field.image["focus"]);
+
+# The field's centre (its glow is symmetric) anchors the dots, the block and the shake.
+field.cx = layout.field.x + layout.field.w / 2;
+field.cy = layout.field.y + layout.field.h / 2;
+field.l["focus"] = layout.field;
+field.l["checking"] = layout.field;
+field.l["error"] = layout.field_error;
+field.l["ok"] = layout.field_ok;
+
+# Enough dots to fill the row; the newest 21 show once it overflows.
+DOTS = 24;
+dot.image = load("dot.png");
+for (slot = 0; slot < DOTS; slot++) {
+  dot.sprite[slot] = Sprite(dot.image);
+  dot.sprite[slot].SetOpacity(0);
+}
+block.sprite = Sprite(load("block.png"));
+
+# From the mockup's CSS: 0.62em dots and block, 6px gap, a 381px field with 3px borders
+# and 18px padding, so 339px for the row before it clamps to the right edge.
+DOT = 9.92;
+GAP = 6;
+INNER = 339;
+
+global.state = "focus";
+global.bullets = 0;
+global.prompted = 0;
+global.shake_tick = -100;
+global.phase = 0;
+
+fun shake_offset() {
+  # @keyframes shake, .4s linear: 0 -8 8 -5 5 0 at every 20%.
+  u = (global.tick - global.shake_tick) / (0.4 * TICKS);
+  if (u >= 1 || u < 0) return 0;
+  k[0] = 0; k[1] = -8; k[2] = 8; k[3] = -5; k[4] = 5; k[5] = 0;
+  i = Math.Int(u * 5);
+  f = u * 5 - i;
+  return (k[i] + (k[i + 1] - k[i]) * f) * global.s;
+}
+
+fun draw_field(visible) {
+  dx = shake_offset();
+  l = field.l[global.state];
+  field.sprite.SetImage(field.image[global.state]);
+  field.sprite.SetPosition(px(l.x) + dx, py(l.y), 30);
+  field.sprite.SetOpacity(visible);
+
+  n = global.bullets;
+  width = (n + 1) * DOT + n * GAP;
+  left = field.cx - width / 2;
+  if (width > INNER) left = field.cx + INNER / 2 - width;
+
+  # Past DOTS typed, only the newest dots (all that fit) are drawn.
+  first = 0;
+  if (n > DOTS) first = n - DOTS;
+  for (i = 0; i < DOTS; i++) {
+    x = left + (first + i) * (DOT + GAP);
+    dot.sprite[i].SetPosition(px(x + DOT / 2) - dot.image.GetWidth() / 2 + dx,
+                              py(field.cy) - dot.image.GetHeight() / 2, 31);
+    # Dots pushed out of the row's left edge are clipped, as by the row's overflow.
+    if (visible && first + i < n && x >= field.cx - INNER / 2 - 0.5) dot.sprite[i].SetOpacity(1);
+    else dot.sprite[i].SetOpacity(0);
+  }
+
+  x = left + n * (DOT + GAP);
+  block.sprite.SetPosition(px(x + DOT / 2) - layout.block.w * global.s / 2 + dx,
+                           py(field.cy) - layout.block.h * global.s / 2, 31);
+  # steps(1) blink: on for the first half of every second, only while typing is possible.
+  global.phase = Math.Int(global.tick * 2 / TICKS) % 2;
+  on = global.state == "focus" || global.state == "error";
+  if (visible && on && global.phase == 0) block.sprite.SetOpacity(1);
+  else block.sprite.SetOpacity(0);
+
+  if (visible && global.state == "checking") verify.SetOpacity(1);
+  else verify.SetOpacity(0);
+}
+
+#----------------------------------------- Init stage --------------------------------
+
+boy.sprite = Sprite();
+boy.sprite.SetPosition(px(810 - layout.boy_pad), py(layout.bar_box.y - 36 - 20 - 390 - layout.boy_pad), 20);
+
+bar.sprite = Sprite();
+bar.sprite.SetPosition(px(layout.bar_box.x), py(layout.bar_box.y), 20);
+pct.sprite = Sprite();
+pct.sprite.SetPosition(px(layout.bar_box.x + layout.bar_box.w + 14 - layout.pct_pad),
+                       py(layout.bar_box.y + layout.bar_box.h / 2 - 10 - layout.pct_pad), 20);
+
+status.sprite = Sprite();
+status.file[1] = "status-1.png"; status.x[1] = layout.status_1.x; status.y[1] = layout.status_1.y;
+status.file[2] = "status-2.png"; status.x[2] = layout.status_2.x; status.y[2] = layout.status_2.y;
+status.file[3] = "status-3.png"; status.x[3] = layout.status_3.x; status.y[3] = layout.status_3.y;
+
+# Frames are loaded the first time they are shown, so the lock stage comes up fast.
+cache.loaded = 0;
+fun cached(file) {
+  if (!cache[file]) cache[file] = load(file);
+  return cache[file];
+}
+
+# The mockup's INIT_STEPS: percent reached at each cumulative time, with a .3s linear
+# transition on the bar. It holds at 94% until the boot itself reports more.
+steps.ms[0] = 600;  steps.pct[0] = 7;
+steps.ms[1] = 1500; steps.pct[1] = 19;
+steps.ms[2] = 2300; steps.pct[2] = 32;
+steps.ms[3] = 3000; steps.pct[3] = 45;
+steps.ms[4] = 3900; steps.pct[4] = 58;
+steps.ms[5] = 4700; steps.pct[5] = 71;
+steps.ms[6] = 5400; steps.pct[6] = 84;
+steps.ms[7] = 6000; steps.pct[7] = 94;
+
+global.target = 0;
+global.bar_from = 0;
+global.bar_now = 0;
+global.bar_tick = 0;
+global.real = 0;
+
+fun set_target(value) {
+  if (value > 100) value = 100;
+  if (value > global.target) {
+    global.bar_from = global.bar_now;
+    global.target = value;
+    global.bar_tick = global.tick;
+  }
+}
+
+fun draw_init(visible) {
+  t = global.tick - global.init_tick;
+  ms = t * 1000 / TICKS;
+  for (i = 0; steps.ms[i]; i++)
+    if (ms >= steps.ms[i]) set_target(steps.pct[i]);
+  set_target(Math.Int(global.real * 100));
+
+  u = (global.tick - global.bar_tick) / (0.3 * TICKS);
+  if (u > 1) u = 1;
+  global.bar_now = global.bar_from + (global.target - global.bar_from) * u;
+
+  bar.sprite.SetImage(cached(bar.file[Math.Int(global.bar_now + 0.5)]));
+  pct.sprite.SetImage(cached(pct.file[global.target]));
+  # 60 ms frames: one every 3 ticks.
+  boy.sprite.SetImage(cached(boy.file[Math.Int(t / 3) % layout.boy_frames]));
+
+  # INITIALIZING SYSTEM. .. ... every 420 ms.
+  n = Math.Int(t / (0.42 * TICKS)) % 3 + 1;
+  status.sprite.SetImage(cached(status.file[n]));
+  status.sprite.SetPosition(px(status.x[n]), py(status.y[n]), 20);
+
+  boy.sprite.SetOpacity(visible);
+  bar.sprite.SetOpacity(visible);
+  pct.sprite.SetOpacity(visible);
+  status.sprite.SetOpacity(visible);
+}
+
+#----------------------------------------- Stages --------------------------------
+
+# lock: waiting for (or checking) the passphrase. init: unlocked, booting.
+# idle: shutdown and reboot, or the boot before a prompt shows up: emblem, no field.
+global.stage = "idle";
+global.tick = 0;
+global.init_tick = 0;
+
+fun show_stage(name) {
+  global.stage = name;
+  if (name == "init") {
+    global.init_tick = global.tick;
+    global.target = 0;
+    global.bar_from = 0;
+    global.bar_now = 0;
+  }
+  emblem.SetOpacity(flag(name != "init"));
+  wordmark.SetOpacity(flag(name != "init"));
+  lock.SetOpacity(flag(name == "lock"));
+  draw_field(flag(name == "lock"));
+  draw_init(flag(name == "init"));
+}
+
+fun refresh_callback() {
+  global.tick++;
+  t = global.tick / TICKS;
+  # The slow, large layers move at 25 fps: half the redraw for no visible difference.
+  even = global.tick % 2 == 0;
+
+  # Rolling beam, 8s per pass.
+  if (even) {
+    f = t / 8 - Math.Int(t / 8);
+    beam.sprite.SetY(-global.sh * 0.18 + f * 8.5 * beam.h);
+  }
+
+  if (global.stage == "init") draw_init(1);
+
+  # @keyframes holo, 4.5s ease-in-out: opacity .92 -> 1 -> .92.
+  if (even && global.stage != "init") emblem.SetOpacity(0.96 - 0.04 * Math.Cos(2 * Math.Pi * t / 4.5));
+
+  if (global.stage == "lock" && global.state == "ok" && global.tick - global.ok_tick >= 0.7 * TICKS) {
+    # Unlocked: green for 700 ms, then the init stage.
+    show_stage("init");
+  } else if (global.stage == "lock") {
+    # No answer either way. An opened volume normally reports through the root-mounted
+    # callback within seconds; this is only the fallback, long enough that a refused
+    # passphrase (every keyslot tried, slow on slow hardware) re-prompts first.
+    if (global.state == "checking" && global.tick - global.check_tick >= 20 * TICKS) granted();
+    # Redraw on a blink edge or while shaking; the callbacks redraw everything else.
+    if (Math.Int(global.tick * 2 / TICKS) % 2 != global.phase || global.tick - global.shake_tick <= 0.4 * TICKS + 1)
+      draw_field(1);
+  } else if (global.stage == "idle" && Plymouth.GetMode() == "boot" && global.tick >= 6 * TICKS && !global.prompted) {
+    # Nothing to unlock: go straight to initializing.
+    show_stage("init");
+  }
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+#----------------------------------------- Passphrase --------------------------------
+
+fun granted() {
+  if (global.stage == "lock" && global.state == "checking") {
+    global.state = "ok";
+    global.ok_tick = global.tick;
+    draw_field(1);
+  }
+}
+
+fun display_password_callback(prompt, bullets) {
+  global.prompted = 1;
+  if (global.stage != "lock") show_stage("lock");
+  if (global.state == "checking") {
+    # Asked again after an answer: the passphrase was refused.
+    global.state = "error";
+    global.shake_tick = global.tick;
+  } else if (global.state == "ok") {
+    global.state = "focus";
+  }
+  global.bullets = bullets;
+  draw_field(1);
+}
+
+fun display_normal_callback() {
+  # The prompt was answered (or never shown); hold the dots while it is checked.
+  if (global.stage == "lock" && global.state != "ok" && global.state != "checking") {
+    global.state = "checking";
+    global.check_tick = global.tick;
+    draw_field(1);
+  }
+}
+
+# The root filesystem mounted, or the real root's systemd reporting: the volume opened.
+fun root_mounted_callback() {
+  granted();
+}
+
+fun update_status_callback(text) {
+  granted();
+}
+
+fun quit_callback() {
+  if (global.stage == "init") {
+    set_target(100);
+    global.bar_from = 100;
+    draw_init(1);
+  }
+}
+
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetRootMountedFunction(root_mounted_callback);
+Plymouth.SetUpdateStatusFunction(update_status_callback);
+Plymouth.SetQuitFunction(quit_callback);
+
+fun progress_callback(duration, progress) {
+  global.real = progress;
+}
+
+Plymouth.SetBootProgressFunction(progress_callback);
+
+show_stage("idle");

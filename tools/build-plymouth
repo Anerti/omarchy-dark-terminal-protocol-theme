@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+"""Build plymouth/vault-tec/: the boot screen (LUKS unlock + initializing) from boot.html.
+
+plymouth/src/boot.html and fallout.css are copies of the mockup. The page is rendered in
+headless Chromium at 1920x1080 with the merged logo and the Omarchy wordmark, once per
+piece with everything else hidden on a transparent background, and each piece is trimmed
+to its ink with magick. The trim offsets are the piece's place on the mockup's 1080p grid;
+they are written into vault-tec.script, which lays the pieces back out (scaled for other
+screen sizes) and animates them. The footer carries live versions, so render-footer
+draws it again whenever the initramfs is built (see bin/vault-tec-plymouth).
+
+Needs chromium and magick. Usage: tools/build-plymouth
+"""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = os.path.join(ROOT, "plymouth", "src")
+OUT = os.path.join(ROOT, "plymouth", "vault-tec")
+FONT = os.path.join(ROOT, "plugins", "anerti.lock", "assets", "fonts", "ShareTechMono-Regular.ttf")
+LOGO = os.path.join(ROOT, "logo", "vaulttec-omarchy.svg")
+W, H = 1920, 1080
+
+# Vault Boy is a 30 ms/frame GIF; every other frame (60 ms) keeps the motion and halves
+# the initramfs weight.
+FRAME_STEP = 2
+
+
+def run(*cmd, **kw):
+    return subprocess.run(cmd, check=True, **kw)
+
+
+def page():
+    """boot.html made standalone: inlined CSS, local font, merged logo."""
+    html = open(os.path.join(SRC, "boot.html")).read()
+    css = open(os.path.join(SRC, "fallout.css")).read()
+    html = re.sub(r"<link[^>]*>\n", "", html)
+    font = "@font-face{font-family:'Share Tech Mono';src:url('file://%s')}" % FONT
+    html = html.replace("<style>", "<style>" + font + css + "\n", 1)
+    html = html.replace("assets/img/vaulttec.svg", "file://" + LOGO)
+    html = html.replace('<script src="assets/js/crt.js"></script>', "")
+    html = html.replace('<a class="btn fx-home" href="index.html">Overview</a>', "")
+    # A dot to shoot (outside the row, which the page's script empties), and the CRT
+    # layers crt.js would have added.
+    html = html.replace('<footer class="robco">', '<span class="dot" style="position:absolute;left:40px;top:40px">'
+                        '</span>\n<div class="crt"><div class="scan"></div><div class="vig"></div>'
+                        '<div class="beam"></div></div>\n<footer class="robco">')
+    # The init status and lock status texts are set from the query.
+    html = html.replace("</body>", """<script>
+  var q = new URLSearchParams(location.search);
+  if (q.get("status")) { clearInterval(dotsTimer); initStatus.textContent = q.get("status"); }
+  if (q.get("note")) document.querySelector(".status").textContent = q.get("note");
+</script>
+<style id="shot">@SHOT@</style>
+</body>""")
+    return html
+
+
+def styles():
+    """The page's own CSS (fallout.css + boot.html's block), for the sprite sheets."""
+    html = page()
+    return re.search(r"<style>(.*?)</style>", html, re.S).group(1)
+
+
+HIDE = """
+html, body, .boot-main { background: transparent !important; }
+body * { visibility: hidden !important; }
+.emblem { animation: none !important; opacity: 1 !important; }
+"""
+
+
+def show(selector, extra=""):
+    return HIDE + "%s, %s * { visibility: visible !important; }\n%s" % (selector, selector, extra)
+
+
+def shoot(tmp, name, query, css):
+    path = os.path.join(tmp, name + ".html")
+    open(path, "w").write(page().replace("@SHOT@", css))
+    png = os.path.join(tmp, name + "-shot.png")
+    run("chromium", "--headless=new", "--disable-gpu", "--hide-scrollbars",
+        "--default-background-color=00000000", "--allow-file-access-from-files",
+        "--window-size=%d,%d" % (W, H), "--virtual-time-budget=2500",
+        "--screenshot=" + png, "file://" + path + query,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return png
+
+
+def trim(png, out):
+    """Trim to ink; returns the piece's (x, y, w, h) on the 1080p grid."""
+    geo = subprocess.run(["magick", png, "-trim", "-format", "%X %Y %w %h", "info:"],
+                         check=True, capture_output=True, text=True).stdout.split()
+    x, y, w, h = (int(v) for v in geo)
+    run("magick", png, "-trim", "+repage", "PNG32:" + out)
+    return [x, y, w, h]
+
+
+def piece(tmp, layout, name, query, css):
+    layout[name] = trim(shoot(tmp, name, query, css), os.path.join(OUT, name + ".png"))
+
+
+def sheet(tmp, name, body, cell, count, cols, out_name):
+    """Render count cells laid out cols across, cut them into out_name % i."""
+    cw, ch = cell
+    rows = (count + cols - 1) // cols
+    html = ("<!doctype html><html><head><meta charset='utf-8'><style>" + styles() + "</style>"
+            "<style>html,body{background:transparent!important;margin:0}"
+            ".c{position:absolute;width:%dpx;height:%dpx}</style></head><body>" % cell + body + "</body></html>")
+    path = os.path.join(tmp, name + ".html")
+    open(path, "w").write(html)
+    png = os.path.join(tmp, name + "-sheet.png")
+    run("chromium", "--headless=new", "--disable-gpu", "--hide-scrollbars",
+        "--default-background-color=00000000", "--allow-file-access-from-files",
+        "--window-size=%d,%d" % (cols * cw, rows * ch), "--virtual-time-budget=4000",
+        "--screenshot=" + png, "file://" + path,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    run("magick", png, "-crop", "%dx%d" % cell, "+repage", "PNG32:" + os.path.join(tmp, name + "-%03d.png"))
+    for i in range(count):
+        shutil.move(os.path.join(tmp, name + "-%03d.png" % i), os.path.join(OUT, out_name % i))
+
+
+def cells(count, cols, cell):
+    for i in range(count):
+        yield i, (i % cols) * cell[0], (i // cols) * cell[1]
+
+
+def main():
+    # Start from nothing and write vault-tec.script last: bin/vault-tec-plymouth installs
+    # only a build that got that far, so a failed one never reaches the boot screen.
+    if os.path.isdir(OUT):
+        shutil.rmtree(OUT)
+    os.makedirs(OUT)
+    tmp = tempfile.mkdtemp()
+    layout = {}
+    try:
+        # Opaque backdrop: the two radial gradients, nothing else.
+        run("magick", shoot(tmp, "bg", "", "body * { visibility: hidden !important; }"
+                            ".boot-main { visibility: visible !important; }"),
+            "-alpha", "off", os.path.join(OUT, "background.png"))
+
+        # CRT: the vignette scales, the scanlines are a strip the script tiles so their
+        # 4px pitch survives any screen height.
+        run("magick", shoot(tmp, "vig", "", show(".crt .vig")),
+            "PNG32:" + os.path.join(OUT, "vignette.png"))
+        scan = shoot(tmp, "scan", "", show(".crt .scan"))
+        run("magick", scan, "-crop", "%dx40+0+0" % W, "+repage", "PNG32:" + os.path.join(OUT, "scanlines.png"))
+        beam = shoot(tmp, "beam", "", show(".crt .beam", ".crt .beam { top: 0 !important; animation: none !important; }"))
+        run("magick", beam, "-crop", "%dx%d+0+0" % (W, round(H * 0.16)), "+repage",
+            "PNG32:" + os.path.join(OUT, "beam.png"))
+
+        piece(tmp, layout, "termlink", "", show(".termlink"))
+        piece(tmp, layout, "emblem", "", show(".emblem"))
+        piece(tmp, layout, "wordmark", "", show(".wordmark"))
+        piece(tmp, layout, "lock", "", show(".lock-icon"))
+        piece(tmp, layout, "dot", "", show(".dot"))
+        piece(tmp, layout, "block", "", show(".block", ".block { opacity: 1 !important; animation: none !important; }"))
+
+        # The field without its dots: focused, refused, granted.
+        bare = ".dots, .dots * { visibility: hidden !important; }"
+        inset = "inset 0 0 26px rgba(0,0,0,0.7), "
+        piece(tmp, layout, "field", "", show(".field", bare +
+              ".field { box-shadow: %s0 0 26px rgba(44,174,46,0.4) !important; }" % inset))
+        piece(tmp, layout, "field-error", "", show(".field", bare +
+              ".field { border-color: var(--urgent) !important;"
+              " box-shadow: %s0 0 26px rgba(255,90,60,0.45) !important; }" % inset))
+        piece(tmp, layout, "field-ok", "", show(".field", bare +
+              ".field { border-color: #2cae2e !important;"
+              " box-shadow: %s0 0 30px rgba(44,174,46,0.5) !important; }" % inset))
+
+        # The lock stage's status slot, used while the passphrase is being checked.
+        piece(tmp, layout, "verify", "?note=VERIFYING%20ACCESS...", show(".status"))
+
+        # Init stage: the empty bar (for its box) and the three status lines.
+        piece(tmp, layout, "bar-box", "?stage=init", show(".bar", ".bar-fill { visibility: hidden !important; }"))
+        os.remove(os.path.join(OUT, "bar-box.png"))
+        for n in (1, 2, 3):
+            piece(tmp, layout, "status-%d" % n, "?stage=init&status=INITIALIZING%20SYSTEM" + "." * n,
+                  show(".init-status"))
+
+        # Bar fill 0-100%: the bar clips its own glow, so each frame is exactly the bar.
+        cell = (420, 20)
+        sheet(tmp, "bar", "".join("<div class='c' style='left:%dpx;top:%dpx'><div class='bar'>"
+                                  "<div class='bar-fill' style='width:%d%%;transition:none'></div></div></div>"
+                                  % (x, y, i) for i, x, y in cells(101, 4, cell)),
+              cell, 101, 4, "bar-%03d.png")
+
+        # Percent labels, right-aligned in the mockup's 3.4em box, padded for the text glow.
+        pad = 10
+        cell = (47 + 2 * pad, 20 + 2 * pad)
+        sheet(tmp, "pct", "".join("<div class='c' style='left:%dpx;top:%dpx'><span class='bar-pct' style="
+                                  "'left:%dpx;top:%dpx;transform:none'>%d%%</span></div>"
+                                  % (x, y, pad, pad, i) for i, x, y in cells(101, 10, cell)),
+              cell, 101, 10, "pct-%03d.png")
+        layout["pct-pad"] = pad
+
+        # Vault Boy: coalesced GIF frames through the mockup's cover crop, tint and glow.
+        frames = os.path.join(tmp, "frames")
+        os.mkdir(frames)
+        run("magick", os.path.join(SRC, "vault-boy-standing-hand-on-hip.gif"), "-coalesce",
+            os.path.join(frames, "f-%03d.png"))
+        files = sorted(os.listdir(frames))[::FRAME_STEP]
+        pad = 24
+        cell = (300 + 2 * pad, 390 + 2 * pad)
+        sheet(tmp, "boy", "".join("<div class='c' style='left:%dpx;top:%dpx'><div class='init-art' style="
+                                  "'margin:%dpx'><img src='file://%s'></div></div>"
+                                  % (x, y, pad, os.path.join(frames, files[i]))
+                                  for i, x, y in cells(len(files), 8, cell)),
+              cell, len(files), 8, "boy-%03d.png")
+        layout["boy-pad"] = pad
+        layout["boy-frames"] = len(files)
+    finally:
+        shutil.rmtree(tmp)
+
+    shutil.copy(os.path.join(SRC, "vault-tec.plymouth"), OUT)
+    shutil.copy(FONT, OUT)
+    shutil.copy(os.path.join(os.path.dirname(FONT), "OFL.txt"), OUT)
+    footer = os.path.join(OUT, "render-footer")
+    shutil.copy(os.path.join(SRC, "render-footer"), footer)
+    os.chmod(footer, 0o755)
+    # A footer for this machine, until the initcpio hook draws one per kernel.
+    run(footer, os.path.join(OUT, "footer.png"))
+    preview(layout)
+
+    script = open(os.path.join(SRC, "vault-tec.script")).read()
+    lines = ["# Generated by tools/build-plymouth: piece -> x, y, w, h on the 1920x1080 grid."]
+    for name, value in layout.items():
+        key = name.replace("-", "_")
+        if isinstance(value, list):
+            for k, v in zip("xywh", value):
+                lines.append("layout.%s.%s = %d;" % (key, k, v))
+        else:
+            lines.append("layout.%s = %d;" % (key, value))
+    for kind, count in (("bar", 101), ("pct", 101), ("boy", layout["boy-frames"])):
+        lines += ['%s.file[%d] = "%s-%03d.png";' % (kind, i, kind, i) for i in range(count)]
+    script = script.replace("#@LAYOUT@", "\n".join(lines))
+    open(os.path.join(OUT, "vault-tec.script"), "w").write(script)
+    json.dump(layout, sys.stdout)
+    print()
+
+
+def preview(layout):
+    """plymouth/preview-{lock,init}.png: the pieces composed as the script lays them out
+    at 1080p, with 8 dots typed and the bar at 62% (the mockup's ?stage=init)."""
+    def at(name, x=None, y=None):
+        l = layout[name]
+        return [os.path.join(OUT, name + ".png"), "-geometry",
+                "+%d+%d" % (l[0] if x is None else x, l[1] if y is None else y), "-composite"]
+
+    def img(file, x, y):
+        return [os.path.join(OUT, file), "-geometry", "+%d+%d" % (x, y), "-composite"]
+
+    def crt():
+        cmd = []
+        for row in range(0, H, 40):
+            cmd += img("scanlines.png", 0, row)
+        return cmd + img("vignette.png", 0, 0)
+
+    common = [os.path.join(OUT, "background.png")] + at("termlink") + img("footer.png", 0, 1000)
+
+    # Dots as the script places them: 0.62em, 6px apart, centred with the block.
+    f = layout["field"]
+    cx, cy = f[0] + f[2] / 2, f[1] + f[3] / 2
+    n, dot, gap = 8, 9.92, 6
+    left = cx - ((n + 1) * dot + n * gap) / 2
+    d = layout["dot"]
+    dots = []
+    for i in range(n):
+        dots += img("dot.png", round(left + i * (dot + gap) + dot / 2 - d[2] / 2), round(cy - d[3] / 2))
+    b = layout["block"]
+    dots += at("block", round(left + n * (dot + gap)), round(cy - b[3] / 2))
+    run("magick", *common, *at("emblem"), *at("wordmark"), *at("field"), *at("lock"), *dots, *crt(),
+        os.path.join(ROOT, "plymouth", "preview-lock.png"))
+
+    bx, by, bw, bh = layout["bar-box"]
+    pad = layout["pct-pad"]
+    run("magick", *common,
+        *img("boy-000.png", 810 - layout["boy-pad"], by - 36 - 20 - 390 - layout["boy-pad"]),
+        *img("bar-062.png", bx, by), *img("pct-062.png", bx + bw + 14 - pad, by + bh // 2 - 10 - pad),
+        *at("status-2"), *crt(),
+        os.path.join(ROOT, "plymouth", "preview-init.png"))
+
+
+if __name__ == "__main__":
+    main()

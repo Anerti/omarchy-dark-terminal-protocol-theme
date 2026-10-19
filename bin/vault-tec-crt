@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Toggle the Vault-Tec CRT screen shader (scanlines + vignette).
+# Usage: vault-tec-crt [on|off|toggle|status]   (default: toggle)
+
+FLAG="$HOME/.local/state/omarchy/toggles/vault-tec-crt"
+
+notify() {
+  if command -v omarchy-notification-send >/dev/null; then
+    omarchy-notification-send "$1" -t 1500
+  fi
+}
+
+enable() {
+  mkdir -p "$(dirname "$FLAG")"
+  touch "$FLAG"
+  hyprctl reload >/dev/null
+  notify "CRT: ON"
+}
+
+disable() {
+  rm -f "$FLAG"
+  hyprctl reload >/dev/null
+  notify "CRT: OFF"
+}
+
+case "${1:-toggle}" in
+  on) enable ;;
+  off) disable ;;
+  toggle) if [[ -f $FLAG ]]; then disable; else enable; fi ;;
+  status) if [[ -f $FLAG ]]; then echo on; else echo off; fi ;;
+  *)
+    echo "Usage: vault-tec-crt [on|off|toggle|status]" >&2
+    exit 1
+    ;;
+esac

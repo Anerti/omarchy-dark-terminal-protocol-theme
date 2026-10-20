@@ -28,6 +28,7 @@ BarWidget {
   readonly property var ids: root.workspaceIds()
   readonly property var leftIds: ids.slice(0, 3)
   readonly property var rightIds: ids.slice(3)
+  readonly property real sideWidth: Math.max(groupWidth(leftIds.length), groupWidth(rightIds.length))
 
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
@@ -89,110 +90,118 @@ BarWidget {
     source: Qt.resolvedUrl("assets/fonts/ShareTechMono-Regular.ttf")
   }
 
-  implicitWidth: rightGroup.x + rightGroup.width + root.pad
-  implicitHeight: root.barSize
+  implicitWidth: root.vertical ? root.barSize : strip.width
+  implicitHeight: root.vertical ? strip.width : root.barSize
 
   Item {
-    id: leftGroup
-    x: root.pad
-    width: root.groupWidth(root.leftIds.length)
-    height: parent.height
-
-    Repeater {
-      model: root.leftIds
-
-      Pill {
-        required property int modelData
-        required property int index
-
-        workspaceId: modelData
-        distance: root.leftIds.length - 1 - index
-        slant: root.lean
-        x: leftGroup.width - root.groupWidth(root.leftIds.length - index)
-      }
-    }
-  }
-
-  Item {
-    id: rightGroup
-    x: wedge.x + wedge.width - root.tuck
-    width: root.groupWidth(root.rightIds.length)
-    height: parent.height
-
-    Repeater {
-      model: root.rightIds
-
-      Pill {
-        required property int modelData
-        required property int index
-
-        workspaceId: modelData
-        distance: index
-        slant: -root.lean
-        x: root.groupWidth(index)
-      }
-    }
-  }
-
-  Item {
-    id: wedge
-    x: leftGroup.x + leftGroup.width - root.tuck
-    width: logo.width + 48
-    height: parent.height
+    id: strip
+    anchors.centerIn: parent
+    width: rightGroup.x + root.sideWidth + root.pad
+    height: root.barSize
+    rotation: root.vertical ? 90 : 0
 
     Item {
-      id: wedgeArt
-      anchors.fill: parent
-      layer.enabled: true
-      layer.effect: MultiEffect {
-        brightness: wedgeButton.tooltipHovered ? 0.1 : 0
-        shadowEnabled: wedgeButton.tooltipHovered
-        shadowColor: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.7)
-        shadowBlur: 0.6
-        shadowHorizontalOffset: 0
-        shadowVerticalOffset: 0
-        autoPaddingEnabled: true
+      id: leftGroup
+      x: root.pad + root.sideWidth - width
+      width: root.groupWidth(root.leftIds.length)
+      height: parent.height
+
+      Repeater {
+        model: root.leftIds
+
+        Pill {
+          required property int modelData
+          required property int index
+
+          workspaceId: modelData
+          distance: root.leftIds.length - 1 - index
+          slant: root.lean
+          x: leftGroup.width - root.groupWidth(root.leftIds.length - index)
+        }
       }
+    }
 
-      Shape {
+    Item {
+      id: rightGroup
+      x: wedge.x + wedge.width - root.tuck
+      width: root.groupWidth(root.rightIds.length)
+      height: parent.height
+
+      Repeater {
+        model: root.rightIds
+
+        Pill {
+          required property int modelData
+          required property int index
+
+          workspaceId: modelData
+          distance: index
+          slant: -root.lean
+          x: root.groupWidth(index)
+        }
+      }
+    }
+
+    Item {
+      id: wedge
+      x: leftGroup.x + leftGroup.width - root.tuck
+      width: logo.width + 48
+      height: parent.height
+
+      Item {
+        id: wedgeArt
         anchors.fill: parent
-        preferredRendererType: Shape.CurveRenderer
+        layer.enabled: true
+        layer.effect: MultiEffect {
+          brightness: wedgeButton.tooltipHovered ? 0.1 : 0
+          shadowEnabled: wedgeButton.tooltipHovered
+          shadowColor: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.7)
+          shadowBlur: 0.6
+          shadowHorizontalOffset: 0
+          shadowVerticalOffset: 0
+          autoPaddingEnabled: true
+        }
 
-        ShapePath {
-          strokeWidth: -1
-          fillColor: root.fg
-          startX: 0; startY: 0
-          PathLine { x: wedge.width; y: 0 }
-          PathLine { x: wedge.width - 14; y: wedge.height }
-          PathLine { x: 14; y: wedge.height }
-          PathLine { x: 0; y: 0 }
+        Shape {
+          anchors.fill: parent
+          preferredRendererType: Shape.CurveRenderer
+
+          ShapePath {
+            strokeWidth: -1
+            fillColor: root.fg
+            startX: 0; startY: 0
+            PathLine { x: wedge.width; y: 0 }
+            PathLine { x: wedge.width - 14; y: wedge.height }
+            PathLine { x: 14; y: wedge.height }
+            PathLine { x: 0; y: 0 }
+          }
+        }
+
+        Image {
+          id: logo
+          anchors.centerIn: parent
+          height: 20
+          width: Math.round(height * 930.07 / 360)
+          source: Qt.resolvedUrl("assets/vaulttec-omarchy-ink.svg")
+          sourceSize.width: width * 2
+          sourceSize.height: height * 2
+          fillMode: Image.PreserveAspectFit
+          smooth: true
         }
       }
 
-      Image {
-        id: logo
-        anchors.centerIn: parent
-        height: 20
-        width: Math.round(height * 930.07 / 360)
-        source: Qt.resolvedUrl("assets/vaulttec-omarchy-ink.svg")
-        sourceSize.width: width * 2
-        sourceSize.height: height * 2
-        fillMode: Image.PreserveAspectFit
-        smooth: true
-      }
-    }
-
-    WidgetButton {
-      id: wedgeButton
-      anchors.fill: parent
-      bar: root.bar
-      text: " "
-      labelVisible: false
-      tooltipText: "Menu"
-      onPressed: function(button) {
-        if (!root.bar) return
-        if (button === Qt.RightButton) root.bar.run("xdg-terminal-exec")
-        else root.bar.run("omarchy-shell shell toggle omarchy.menu '{\"menu\":\"root\"}'")
+      WidgetButton {
+        id: wedgeButton
+        anchors.fill: parent
+        bar: root.bar
+        text: " "
+        labelVisible: false
+        tooltipText: "Menu"
+        onPressed: function(button) {
+          if (!root.bar) return
+          if (button === Qt.RightButton) root.bar.run("xdg-terminal-exec")
+          else root.bar.run("omarchy-shell shell toggle omarchy.menu '{\"menu\":\"root\"}'")
+        }
       }
     }
   }
@@ -254,6 +263,7 @@ BarWidget {
         readonly property real lift: 3 + font.pixelSize / 2
 
         x: (body.width - width) / 2 - pill.slant * lift
+        rotation: root.vertical ? -90 : 0
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 3
         height: font.pixelSize

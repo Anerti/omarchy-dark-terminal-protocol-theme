@@ -536,7 +536,7 @@ Panel {
 
   component InfoValue: Text {
     textFormat: Text.PlainText
-    color: "#d6ffe3"
+    color: Style.hoverStateColor(root.bar.foreground, Commons.Color.accent)
     font.family: root.bar.fontFamily
     font.pixelSize: Style.font.bodySmall
   }

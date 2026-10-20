@@ -14,6 +14,18 @@ Panel {
 
   readonly property color currentRowFill: Commons.Color.menu.selectedBackground
   readonly property color currentRowText: Commons.Color.menu.selectedText
+  readonly property bool artFits: {
+    if (panel.availableCardHeight <= 0) return true
+    var rest = 0
+    var shown = 0
+    for (var i = 0; i < column.children.length; i++) {
+      var child = column.children[i]
+      if (child === art || !child.visible || child.height <= 0) continue
+      rest += child.height
+      shown++
+    }
+    return rest + shown * column.spacing + art.implicitHeight + panel.verticalContentInset <= panel.availableCardHeight
+  }
   moduleName: "omarchy.bluetooth"
   ipcTarget: "omarchy.bluetooth"
   // manageIpc: false so this panel can own the single IpcHandler the target
@@ -770,7 +782,9 @@ Panel {
         }
 
         PanelArt {
+          id: art
           width: parent.width
+          visible: root.artFits
           source: Qt.resolvedUrl("assets/vault-dweller-meets-soldier-vertibird.gif")
           playing: root.opened
         }

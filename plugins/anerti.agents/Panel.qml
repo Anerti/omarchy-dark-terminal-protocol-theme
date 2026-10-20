@@ -362,7 +362,7 @@ Panel {
     contentWidth: panel.fittedContentWidth(Style.space(380))
     // Taller than the control panels on purpose: this one is a dashboard, and
     // the whole point is reading limits and history without scrolling.
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(640))
+    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(640) + art.height + column.spacing)
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -472,6 +472,7 @@ Panel {
           }
 
           PanelArt {
+            id: art
             width: parent.width
             source: Qt.resolvedUrl("assets/vault-boy-meeting-feral-ghouls-puzzled.gif")
             playing: root.opened

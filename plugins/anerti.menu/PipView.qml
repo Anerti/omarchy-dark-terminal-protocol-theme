@@ -14,6 +14,7 @@ PanelWindow {
   property alias list: rowList
   property alias keys: keyCatcher
   property alias frame: frame
+  property alias confirm: deleteConfirm
 
   readonly property color fg: "#2cae2e"
   readonly property color fgBright: "#d6ffe3"
@@ -22,7 +23,7 @@ PanelWindow {
   readonly property color line: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.28)
   readonly property color lineStrong: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.6)
   readonly property color glow: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.55)
-  readonly property color gifInk: "#e1fdf8"
+  readonly property color gifInk: "#d6ffe3"
 
   readonly property string textFamily: shareTech.status === FontLoader.Ready ? shareTech.name : menu.fontFamily
   readonly property string glyphFamily: menu.fontFamily
@@ -83,12 +84,16 @@ PanelWindow {
     border.width: 1
     border.color: pip.lineStrong
     gradient: Gradient {
-      GradientStop { position: 0.0; color: "#081f11" }
+      GradientStop { position: 0.0; color: "#081d11" }
       GradientStop { position: 0.55; color: "#020a05" }
       GradientStop { position: 1.0; color: "#020a05" }
     }
 
-    MouseArea { anchors.fill: parent; onClicked: {} }
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.LeftButton | Qt.RightButton
+      onClicked: function(mouse) { if (mouse.button === Qt.RightButton) menu.cancel() }
+    }
 
     Repeater {
       model: [
@@ -103,7 +108,7 @@ PanelWindow {
         width: vertical ? frame.width : depth
         height: vertical ? depth : frame.height
         gradient: Gradient {
-          orientation: parent.vertical ? Gradient.Vertical : Gradient.Horizontal
+          orientation: vertical ? Gradient.Vertical : Gradient.Horizontal
           GradientStop {
             position: 0.0
             color: (modelData.edge === "top" || modelData.edge === "left") ? Qt.rgba(0, 0, 0, 0.55) : "transparent"
@@ -243,6 +248,7 @@ PanelWindow {
 
                 Text {
                   text: menu.filterText ? menu.filterText : "GO ..."
+                  textFormat: Text.PlainText
                   color: menu.filterText ? pip.fgBright : pip.fgDim
                   font.family: pip.textFamily
                   font.pixelSize: queryRow.size
@@ -361,6 +367,7 @@ PanelWindow {
                   anchors.centerIn: parent
                   visible: !row.isApp
                   text: row.icon || "•"
+                  textFormat: Text.PlainText
                   color: row.hasCursor ? pip.ink : pip.fgDim
                   font.family: row.iconFont.length > 0 ? row.iconFont : pip.glyphFamily
                   font.pixelSize: pip.px(16)
@@ -388,6 +395,7 @@ PanelWindow {
                 Text {
                   width: parent.width
                   text: row.label
+                  textFormat: Text.PlainText
                   color: row.hasCursor ? pip.ink : pip.fg
                   font.family: pip.textFamily
                   font.pixelSize: pip.px(16.3)
@@ -399,6 +407,7 @@ PanelWindow {
                   width: parent.width
                   visible: row.detail.length > 0
                   text: row.detail
+                  textFormat: Text.PlainText
                   color: row.hasCursor ? pip.ink : pip.fgDim
                   font.family: pip.textFamily
                   font.pixelSize: pip.px(11.5)
@@ -573,6 +582,7 @@ PanelWindow {
               bottomPadding: pip.px(20)
               lineHeight: 1.65
               text: pip.current && pip.current.detail ? pip.current.detail : ""
+              textFormat: Text.PlainText
               color: pip.fg
               font.family: pip.textFamily
               font.pixelSize: pip.px(14.7)

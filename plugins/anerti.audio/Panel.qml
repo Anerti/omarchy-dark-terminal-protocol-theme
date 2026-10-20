@@ -22,7 +22,7 @@ Panel {
   readonly property var nodes: Pipewire.nodes ? Pipewire.nodes.values : []
   readonly property var mprisPlayers: Mpris.players ? Mpris.players.values : []
   readonly property var mediaService: bar?.shell?.firstPartyServiceFor("omarchy.media")
-  readonly property var activeMediaPlayer: mediaService ? mediaService.activePlayer : null
+  readonly property var activeMediaPlayer: mediaService ? mediaService.activePlayer : selectActiveMediaPlayer()
 
   readonly property var candidateSinks: {
     var list = []
@@ -572,6 +572,52 @@ Panel {
 
   function streamRepresentsPlayer(node, player) {
     return Model.streamRepresentsPlayer(node, player, mprisPlayers, displayAudioStreams)
+  }
+
+  function mediaKey(label) {
+    return String(label || "").toLowerCase()
+      .replace(/^pipewire alsa \[/, "")
+      .replace(/\]$/, "")
+      .replace(/^alsa playback \[/, "")
+      .replace(/[^a-z0-9]+/g, "")
+  }
+
+  function playerHasPlaybackStream(player) {
+    var dbus = String(player.dbusName || "")
+      .replace(/^org\.mpris\.MediaPlayer2\./, "")
+      .replace(/\.instance[0-9]+$/, "")
+    var key = mediaKey(player.desktopEntry || player.identity || dbus)
+    if (!key) return false
+    for (var i = 0; i < candidateStreams.length; i++) {
+      var streamKey = mediaKey(rawStreamLabel(candidateStreams[i]))
+      if (streamKey && (streamKey.indexOf(key) !== -1 || key.indexOf(streamKey) !== -1)) return true
+    }
+    return false
+  }
+
+  function selectActiveMediaPlayer() {
+    var ranked = []
+    for (var i = 0; i < mprisPlayers.length; i++) {
+      var p = mprisPlayers[i]
+      if (!p) continue
+      var proxy = mprisPlayerIsProxy(p) ? 1 : 0
+      var stream = playerHasPlaybackStream(p)
+      var tiers = []
+      if (p.isPlaying && stream) tiers.push(0)
+      if (p.isPlaying) tiers.push(1)
+      if (stream) tiers.push(2)
+      else if (p.trackTitle || p.trackArtist || p.trackAlbum || p.trackArtUrl) tiers.push(3)
+      else if (p.canTogglePlaying || p.canPlay || p.canPause || p.canGoNext || p.canGoPrevious) tiers.push(4)
+      else if (p.identity || p.desktopEntry) tiers.push(5)
+      for (var t = 0; t < tiers.length; t++) {
+        var slot = tiers[t] * 2 + proxy
+        if (!ranked[slot]) ranked[slot] = p
+      }
+    }
+    for (var j = 0; j < ranked.length; j++) {
+      if (ranked[j]) return ranked[j]
+    }
+    return null
   }
 
   implicitWidth: button.implicitWidth

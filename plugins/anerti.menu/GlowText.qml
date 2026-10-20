@@ -22,6 +22,7 @@ Item {
     font.family: root.family
     font.pixelSize: root.size
     font.letterSpacing: root.spacing
+    textFormat: Text.PlainText
     elide: Text.ElideRight
   }
 

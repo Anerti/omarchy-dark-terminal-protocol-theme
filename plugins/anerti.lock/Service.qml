@@ -42,6 +42,10 @@ Item {
   property bool strandedLockResolved: false
 
   readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
+
+  function currentlyLocked() {
+    return lockRequested || sessionLock.locked || sessionLock.secure
+  }
   readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating
 
   function realScreenCount() {
@@ -93,7 +97,7 @@ Item {
     if (strandedLockResolved || strandedLockCheckProc.running) return
 
     // A lock this shell took is nobody's orphan.
-    if (locked || lockRequested) {
+    if (currentlyLocked()) {
       strandedLockResolved = true
       return
     }
@@ -102,7 +106,7 @@ Item {
   }
 
   function recoverStrandedLock() {
-    if (!strandedLock || locked || !passwordPamConfigured) return
+    if (!strandedLock || currentlyLocked() || !passwordPamConfigured) return
 
     strandedLock = false
     logEvent("lock-stranded: recovering")
@@ -163,7 +167,7 @@ Item {
   }
 
   function grantAccess() {
-    if (granting || (!root.locked && !lockRequested)) return
+    if (granting || !root.currentlyLocked()) return
 
     granting = true
     idleBlankTimer.stop()
@@ -188,7 +192,7 @@ Item {
   }
 
   function finishUnlock() {
-    if (!root.locked && !lockRequested) return
+    if (!root.currentlyLocked()) return
 
     lockRequested = false
     pendingSessionLock = false
@@ -460,7 +464,7 @@ Item {
       root.strandedLockResolved = true
 
       // A lock taken while this was in flight is this shell's own.
-      root.strandedLock = exitCode === 0 && !root.locked && !root.lockRequested
+      root.strandedLock = exitCode === 0 && !root.currentlyLocked()
       root.recoverStrandedLock()
     }
   }
@@ -578,17 +582,17 @@ Item {
     function lock(): string {
       if (!root.passwordPamConfigured) return "missing-pam"
       root.cancelGrant()
-      if (!root.locked && !root.beginLock()) return "failed"
+      if (!root.currentlyLocked() && !root.beginLock()) return "failed"
       return "ok"
     }
 
     function isLocked(): string {
-      return root.locked ? "true" : "false"
+      return root.currentlyLocked() ? "true" : "false"
     }
 
     function status(): string {
       return JSON.stringify({
-        locked: root.locked,
+        locked: root.currentlyLocked(),
         requested: root.lockRequested,
         pending: root.pendingSessionLock,
         sessionLocked: sessionLock.locked,

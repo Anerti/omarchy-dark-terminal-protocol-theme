@@ -9,7 +9,7 @@ they are written into vault-tec.script, which lays the pieces back out (scaled f
 screen sizes) and animates them. The footer carries live versions, so render-footer
 draws it again whenever the initramfs is built (see bin/vault-tec-plymouth).
 
-Needs chromium and magick. Usage: tools/build-plymouth
+Needs chromium, magick and plymouth. Usage: tools/build-plymouth [--check]
 """
 
 import json
@@ -34,6 +34,21 @@ FRAME_STEP = 2
 
 def run(*cmd, **kw):
     return subprocess.run(cmd, check=True, **kw)
+
+
+PARSE = """
+import ctypes, sys
+so = ctypes.CDLL("/usr/lib/plymouth/script.so")
+so.script_parse_file.restype = ctypes.c_void_p
+so.script_parse_file.argtypes = [ctypes.c_char_p]
+sys.exit(0 if so.script_parse_file(sys.argv[1].encode()) else 1)
+"""
+
+
+def check_script(path):
+    r = subprocess.run([sys.executable, "-I", "-c", PARSE, path], capture_output=True, text=True)
+    if r.returncode or r.stderr.strip():
+        sys.exit("%s does not parse: %s" % (path, r.stderr.strip() or "no script"))
 
 
 def page():
@@ -96,6 +111,8 @@ def trim(png, out):
     geo = subprocess.run(["magick", png, "-trim", "-format", "%X %Y %w %h", "info:"],
                          check=True, capture_output=True, text=True).stdout.split()
     x, y, w, h = (int(v) for v in geo)
+    if w <= 1 or h <= 1 or x < 0 or y < 0:
+        sys.exit("%s rendered empty: check its selector against boot.html" % os.path.basename(out))
     run("magick", png, "-trim", "+repage", "PNG32:" + out)
     return [x, y, w, h]
 
@@ -238,7 +255,10 @@ def main():
     for kind, count in (("bar", 101), ("pct", 101), ("boy", layout["boy-frames"])):
         lines += ['%s.file[%d] = "%s-%03d.png";' % (kind, i, kind, i) for i in range(count)]
     script = script.replace("#@LAYOUT@", "\n".join(lines))
-    open(os.path.join(OUT, "vault-tec.script"), "w").write(script)
+    path = os.path.join(OUT, "vault-tec.script")
+    open(path + ".new", "w").write(script)
+    check_script(path + ".new")
+    os.replace(path + ".new", path)
     json.dump(layout, sys.stdout)
     print()
 
@@ -286,4 +306,7 @@ def preview(layout):
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:] == ["--check"]:
+        check_script(os.path.join(OUT, "vault-tec.script"))
+    else:
+        main()

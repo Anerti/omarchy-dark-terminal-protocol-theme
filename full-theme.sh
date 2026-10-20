@@ -20,6 +20,7 @@
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SELF="$ROOT/$(basename "$0")"
 THEMES="$HOME/.config/omarchy/themes"
+CURRENT="$HOME/.local/state/omarchy/current/theme"
 ICONS="$HOME/.local/share/icons/VaultTec"
 HOOKS="$HOME/.config/omarchy/hooks"
 PLUGINS="$HOME/.config/omarchy/plugins"
@@ -59,6 +60,11 @@ done
 
 current_theme() {
   cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null
+}
+
+theme_current() {
+  [[ $(current_theme) == "$THEME" && -d $CURRENT ]] &&
+    ! diff -rq --exclude='.*' "$ROOT" "$CURRENT" 2>/dev/null | grep -qv "^Only in $CURRENT"
 }
 
 current_cursor() {
@@ -113,7 +119,7 @@ boot_active() {
 
 # Active and the same as this checkout's build, so there is nothing to rebuild.
 boot_current() {
-  boot_active && diff -rq "$ROOT/plymouth/vault-tec" "$BOOT_THEME" >/dev/null 2>&1
+  boot_active && diff -rq -x footer.png "$ROOT/plymouth/vault-tec" "$BOOT_THEME" >/dev/null 2>&1
 }
 
 login_state() {
@@ -139,7 +145,7 @@ plugin_names() {
 # Each runs from step() through "$SELF __run", its output going to the log.
 
 set_theme() {
-  [[ $(current_theme) == "$THEME" ]] || omarchy theme set "$THEME"
+  theme_current || omarchy theme set "$THEME"
 }
 
 set_cursors() {
@@ -150,14 +156,9 @@ set_cursors() {
   fi
 }
 
-# install the given plugins that are missing; vault-tec-plugins enables them.
+# Install the given plugins, or update them; vault-tec-plugins enables new ones.
 install_plugins() {
-  local json id missing=()
-  json=$(plugin_json)
-  for id; do
-    [[ $(plugin_state "$json" "$id") == missing ]] && missing+=("$id")
-  done
-  ((${#missing[@]} == 0)) || "$ROOT/bin/vault-tec-plugins" install "${missing[@]}"
+  "$ROOT/bin/vault-tec-plugins" install "$@"
 }
 
 # set_plugins on|off id...
@@ -443,7 +444,9 @@ status() {
   }
 
   printf '\n  %s%sVAULT-TEC%s %s· status%s\n\n' "$BOLD" "$C_GREEN" "$RESET" "$C_MUTED" "$RESET"
-  row Theme "$([[ $(current_theme) == "$THEME" ]] && echo ok)" "$(current_theme) (this theme: ${THEME:-not installed})"
+  local changed=
+  [[ $(current_theme) == "$THEME" ]] && ! theme_current && changed=", changed since it was set"
+  row Theme "$(theme_current && echo ok)" "$(current_theme) (this theme: ${THEME:-not installed}$changed)"
   row Cursors "$(cursor_installed && [[ $(current_cursor) == VaultTec ]] && echo ok)" \
     "$(current_cursor)$(cursor_installed || echo ", VaultTec not installed")"
   local s

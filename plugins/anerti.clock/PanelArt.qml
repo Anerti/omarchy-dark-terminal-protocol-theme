@@ -16,6 +16,7 @@ Item {
     visible: false
     fillMode: Image.PreserveAspectFit
     playing: root.playing && root.visible
+    cache: false
     smooth: true
   }
 

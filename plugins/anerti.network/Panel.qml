@@ -17,9 +17,21 @@ Panel {
   // permits — needed for the toggleNetwork method below.
   manageIpc: false
 
-  readonly property color valueColor: "#d6ffe3"
+  readonly property color valueColor: Style.hoverStateColor(root.bar.foreground, Commons.Color.accent)
   readonly property color currentRowFill: Commons.Color.menu.selectedBackground
   readonly property color currentRowText: Commons.Color.menu.selectedText
+  readonly property bool artFits: {
+    if (panel.availableCardHeight <= 0) return true
+    var rest = 0
+    var shown = 0
+    for (var i = 0; i < column.children.length; i++) {
+      var child = column.children[i]
+      if (child === art || !child.visible || child.height <= 0) continue
+      rest += child.height
+      shown++
+    }
+    return rest + shown * column.spacing + art.implicitHeight + panel.verticalContentInset <= panel.availableCardHeight
+  }
 
   // Centralized close so callers can't forget to drop the passphrase prompt.
   function close() {
@@ -1214,7 +1226,9 @@ Panel {
       }
 
       PanelArt {
+        id: art
         width: parent.width
+        visible: root.artFits
         source: Qt.resolvedUrl("assets/sailor-operating-radio-transmitter.gif")
         playing: root.opened
       }
@@ -1618,6 +1632,9 @@ Panel {
     foreground: root.bar.foreground
     fill: isConnected ? root.currentRowFill : root.hoverFill
     currentFill: root.currentRowFill
+    borderSpec: hasCursor
+      ? Border.controlSpec(current ? "focus" : "hover-cursor", foreground, accent)
+      : (current ? Border.controlSpec("selected", foreground, accent) : Border.none())
     // Gate on the matching *Kind/*Reason being non-empty so a hidden-SSID
     // row (ssid == "") doesn't match the "" defaults of actionSsid etc.
     readonly property bool isBusy: root.actionKind !== "" && root.actionSsid === (net ? net.ssid : "")
@@ -1663,9 +1680,9 @@ Panel {
     }
 
     readonly property color statusColor: {
+      if (isConnected) return root.currentRowText
       if (isFailed) return root.bar.urgent
       if (isBusy) return root.bar.foreground
-      if (isConnected) return root.currentRowText
       return Qt.darker(root.bar.foreground, 1.5)
     }
 

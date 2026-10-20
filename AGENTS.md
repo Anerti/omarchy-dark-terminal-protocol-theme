@@ -17,13 +17,13 @@ There is no test suite, linter config or CI; see Verifying.
 | `alacritty.toml`, `foot.ini`, `ghostty.conf`, `kitty.conf`, `btop.theme`, `icons.theme`, `keyboard.rgb` | Per-app theme files Omarchy picks up. |
 | `backgrounds/` | Wallpapers. |
 | `logo/` | `vaulttec-omarchy.svg`: Vault-Tec wings around the Omarchy mark (generated), plus its fonts. |
-| `plugins/anerti.*` | Omarchy shell plugins, each a clone of a built-in (`manifest.json` → `omarchy.clonedFrom`). |
+| `plugins/anerti.*` | Omarchy shell plugins, each a clone of a built-in (`manifest.json` → `omarchy.clonedFrom`). `plugins/omarchy-version` records the Omarchy release they were last synced with (`tools/upstream-check`). |
 | `cursors/VaultTec` | Built XCursor theme. |
 | `hooks/vault-tec-cursor` | Omarchy `theme-set` / `post-boot` hook: VaultTec cursors while this theme is active. |
 | `plymouth/src/` | Boot screen sources: `boot.html` + `fallout.css` (mockup copies), `vault-tec.script` template, `render-footer`, the Vault Boy GIF. |
 | `plymouth/vault-tec/` | Built Plymouth theme (generated, ~4 MB of PNG sprites). |
 | `bin/` | Installers/toggles for one part each: `vault-tec-plugins`, `vault-tec-cursor`, `vault-tec-crt`, `vault-tec-plymouth`. |
-| `tools/` | Build scripts for generated assets, and `clone-panel`. |
+| `tools/` | Build scripts for generated assets, `clone-panel`, and `upstream-check` (what changed in the built-ins the clones came from). |
 | `full-theme.sh` | Interactive setup (gum TUI): theme + cursors, then yes/no for menu, bar, login and the CRT effect; `--status`, `--unset` (everything back to built-in and the CRT effect off, then a ✓/✗ check of each plugin, built-in, the bar layout, the boot screen and the CRT effect). Signs off with the logo drawn as half-block art (cached in `~/.cache/vault-tec`). |
 
 ### Plugins
@@ -74,11 +74,14 @@ copyright) is drawn at install time by `render-footer`, not baked in.
   installed.
 - **Boot screen:** `bin/vault-tec-plymouth install` uses **sudo**, copies to
   `/usr/share/plymouth/themes/vault-tec`, adds an initcpio hook (`render-footer` per
-  initramfs) and a pacman hook (rebuild on Omarchy upgrades), then rebuilds the
-  initramfs (`limine-mkinitcpio`). `test` previews it from a text console with the
-  passphrase `omarchy`. `uninstall` returns to Omarchy's `omarchy` theme.
-  Omarchy's "set boot screen from theme" menu item (`omarchy-plymouth-set-by-theme`)
-  switches the default back to `omarchy`; `omarchy theme set` does not.
+  initramfs) and a pacman hook (rebuild on Omarchy upgrades and kernel installs), then
+  rebuilds the initramfs (`limine-mkinitcpio`). It only writes what changed, so
+  re-running it on a current install does no work and rebuilds nothing. The first
+  install records the default theme; `uninstall` restores that one (Omarchy's `omarchy`
+  when there is no record). `test` previews it from a text console with the
+  passphrase `omarchy`. Omarchy's "set boot screen from theme" menu item
+  (`omarchy-plymouth-set-by-theme`) switches the default back to `omarchy`; `omarchy
+  theme set` does not.
 - **CRT shader:** the flag file `~/.local/state/omarchy/toggles/vault-tec-crt`, read by
   `hyprland.lua`.
 

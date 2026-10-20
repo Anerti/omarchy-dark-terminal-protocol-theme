@@ -34,7 +34,7 @@ shows up at the next refresh, so nothing polls the disk waiting for it.
 That self-hiding is why the widget ships in the default bar layout: a machine
 that has never run an AI coding agent draws nothing, and the icon arrives on
 its own the first time a scan finds usage. Drop it with
-`omarchy plugin disable omarchy.agents`.
+`omarchy plugin disable anerti.agents`.
 
 ## Data
 
@@ -103,7 +103,7 @@ only adds the meter and the spent-of-funded line under the real figure.
 
 Settings live in the widget's entry in `~/.config/omarchy/shell.json`. The
 top-level keys can be set with
-`omarchy bar set omarchy.agents <key> <value>`:
+`omarchy bar set anerti.agents <key> <value>`:
 
 | Key | Default | What it does |
 |---|---|---|
@@ -116,8 +116,8 @@ top-level keys can be set with
 Numbers need `--json`, or they land in `shell.json` as strings:
 
 ```bash
-omarchy bar set omarchy.agents refreshIntervalSec 300 --json
-omarchy bar set omarchy.agents syncDir '~/Sync/agent-usage'
+omarchy bar set anerti.agents refreshIntervalSec 300 --json
+omarchy bar set anerti.agents syncDir '~/Sync/agent-usage'
 ```
 
 Per-agent enablement is nested, and `set` writes its key literally rather
@@ -125,7 +125,7 @@ than walking a dotted path — so pass the whole `providers` object as JSON (or
 edit `shell.json` directly):
 
 ```bash
-omarchy bar set omarchy.agents providers '{
+omarchy bar set anerti.agents providers '{
   "claude": { "enabled": true },
   "codex": { "enabled": false },
   "fireworks": { "enabled": true }

@@ -105,7 +105,7 @@ Nothing changes until you confirm the summary. Built-in disables the plugins, wh
 ./full-theme.sh --unset    # back to Omarchy's menu, bar, boot and lock screens, CRT off
 ```
 
-`--unset` disables every Vault-Tec plugin, turns off the CRT effect, returns the boot screen to Omarchy's own, makes sure each built-in they replaced is enabled again, then checks every part and reports it. The plugins stay installed, and the theme and cursors are left as they are.
+`--unset` disables every Vault-Tec plugin, turns off the CRT effect, returns the boot screen to the one that was default before, makes sure each built-in they replaced is enabled again, then checks every part and reports it. The plugins stay installed, and the theme and cursors are left as they are.
 
 ### Individual parts
 
@@ -114,6 +114,6 @@ Nothing changes until you confirm the summary. Built-in disables the plugins, wh
 | Shell plugins | `bin/vault-tec-plugins [install\|uninstall] [id...]` | Copies `plugins/` into `~/.config/omarchy/plugins/` and restarts the shell. A plugin is enabled only on its first install. |
 | Cursors | `bin/vault-tec-cursor [install\|uninstall]` | Installs `~/.local/share/icons/VaultTec` and a hook that uses it while this theme is active. |
 | CRT effect | `bin/vault-tec-crt [on\|off\|toggle\|status]` | Scanlines and vignette as a Hyprland screen shader. It also shows in screenshots and recordings. |
-| Boot screen | `bin/vault-tec-plymouth [install\|uninstall\|test]` | Installs the `vault-tec` Plymouth theme (sudo) and rebuilds the initramfs. Its footer shows the Omarchy version, kernel and hostname, and is redrawn whenever the initramfs is rebuilt, including after Omarchy upgrades. `test` plays it from a text console (Ctrl+Alt+F3); its passphrase is `omarchy`. `uninstall` returns to Omarchy's own. |
+| Boot screen | `bin/vault-tec-plymouth [install\|uninstall\|test]` | Installs the `vault-tec` Plymouth theme (sudo) and rebuilds the initramfs. Its footer shows the Omarchy version, kernel and hostname, and is redrawn whenever the initramfs is rebuilt, including after Omarchy upgrades and kernel installs. Reinstalling only rewrites what changed, and `uninstall` restores the boot screen that was default before. `test` plays it from a text console (Ctrl+Alt+F3); its passphrase is `omarchy`. |
 
 Keybindings stay Omarchy's: **Super + Space** opens the Pip-Boy menu (also the wedge in the bar), **Super + Ctrl + Space** the background switcher.

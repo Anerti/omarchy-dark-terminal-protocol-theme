@@ -194,7 +194,7 @@ Item {
 
   Loader {
     id: ownAppLibrary
-    active: !root.shellAppLibrary
+    active: !!root.shell && !root.shellAppLibrary
     sourceComponent: AppLibrary {}
   }
   property bool deleteConfirmOpen: false
@@ -881,6 +881,7 @@ Item {
     if (!row || row.kind !== "app") return
     root.deleteTarget = { appId: row.appId, label: row.label }
     deleteConfirm.selectedIndex = 1
+    pipView.confirm.selectedIndex = 1
     root.deleteConfirmOpen = true
   }
 
@@ -888,6 +889,7 @@ Item {
     root.deleteConfirmOpen = false
     root.deleteTarget = null
     deleteConfirm.selectedIndex = 1
+    pipView.confirm.selectedIndex = 1
     root.disarmPointer()
     root.focusKeys()
   }

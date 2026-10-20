@@ -348,9 +348,19 @@ fun flag(condition) {
   return 0;
 }
 
-global.sw = Window.GetWidth();
-global.sh = Window.GetHeight();
-global.s = Math.Min(global.sw / 1920, global.sh / 1080);
+fun geometry() {
+  global.sw = Window.GetWidth();
+  global.sh = Window.GetHeight();
+  global.vw = global.sw;
+  global.vh = global.sh;
+  for (i = 0; i < 16 && Window.GetWidth(i); i++) {
+    global.vw = Math.Min(global.vw, Window.GetWidth(i));
+    global.vh = Math.Min(global.vh, Window.GetHeight(i));
+  }
+  global.s = Math.Min(global.vw / 1920, global.vh / 1080);
+  global.top = (global.sh - global.vh) / 2;
+  global.bottom = global.top + global.vh;
+}
 
 fun px(x) { return global.sw / 2 + (x - 960) * global.s; }
 fun py(y) { return global.sh / 2 + (y - 540) * global.s; }
@@ -362,10 +372,9 @@ fun load(file) {
   return image;
 }
 
-fun piece(file, l, z) {
-  sprite = Sprite(load(file));
+fun piece(sprite, file, l, z) {
+  sprite.SetImage(load(file));
   sprite.SetPosition(px(l.x), py(l.y), z);
-  return sprite;
 }
 
 #----------------------------------------- Backdrop and CRT --------------------------------
@@ -373,44 +382,55 @@ fun piece(file, l, z) {
 Window.SetBackgroundTopColor(0.008, 0.039, 0.020);
 Window.SetBackgroundBottomColor(0.008, 0.039, 0.020);
 
-background = Sprite(Image("background.png").Scale(global.sw, global.sh));
-background.SetPosition(0, 0, -100);
+background = Sprite();
+vignette = Sprite();
+scan.rows = 0;
+beam.sprite = Sprite();
+termlink = Sprite();
+footer = Sprite();
 
-vignette = Sprite(Image("vignette.png").Scale(global.sw, global.sh));
-vignette.SetPosition(0, 0, 900);
+fun setup_backdrop() {
+  background.SetImage(Image("background.png").Scale(global.sw, global.sh));
+  background.SetPosition(0, 0, -100);
 
-# Scanlines keep their 4px pitch at any height: the strip is tiled, not stretched.
-scan.image = Image("scanlines.png").Scale(global.sw, 40);
-for (row = 0; row * 40 < global.sh; row++) {
-  scan.sprite[row] = Sprite(scan.image);
-  scan.sprite[row].SetPosition(0, row * 40, 901);
+  vignette.SetImage(Image("vignette.png").Scale(global.sw, global.sh));
+  vignette.SetPosition(0, 0, 900);
+
+  # Scanlines keep their 4px pitch at any height: the strip is tiled, not stretched.
+  scan.image = Image("scanlines.png").Scale(global.sw, 40);
+  for (row = 0; row * 40 < global.sh; row++) {
+    if (!scan.sprite[row]) scan.sprite[row] = Sprite();
+    scan.sprite[row].SetImage(scan.image);
+    scan.sprite[row].SetPosition(0, row * 40, 901);
+    scan.sprite[row].SetOpacity(1);
+  }
+  shown = row;
+  for (row = shown; row < scan.rows; row++) scan.sprite[row].SetOpacity(0);
+  if (shown > scan.rows) scan.rows = shown;
+
+  # The rolling beam: 16% of the screen tall, from 18% above it down 8.5 of its heights in 8s.
+  beam.h = global.sh * 0.16;
+  beam.sprite.SetImage(Image("beam.png").Scale(global.sw, Math.Int(beam.h + 0.5)));
+  beam.sprite.SetPosition(0, -global.sh * 0.18, 902);
+
+  termlink.SetImage(load("termlink.png"));
+  termlink.SetPosition(px(layout.termlink.x), global.top + layout.termlink.y * global.s, 10);
+
+  # footer.png is the band y 1000-1080 of the grid, redrawn by render-footer with the
+  # versions of the system the initramfs was built for.
+  footer.SetImage(load("footer.png"));
+  footer.SetPosition(px(0), global.bottom - 80 * global.s, 10);
 }
-
-# The rolling beam: 16% of the screen tall, from 18% above it down 8.5 of its heights in 8s.
-beam.h = global.sh * 0.16;
-beam.sprite = Sprite(Image("beam.png").Scale(global.sw, Math.Int(beam.h + 0.5)));
-beam.sprite.SetPosition(0, -global.sh * 0.18, 902);
-
-termlink = Sprite(load("termlink.png"));
-termlink.SetPosition(px(layout.termlink.x), layout.termlink.y * global.s, 10);
-
-# footer.png is the band y 1000-1080 of the grid, redrawn by render-footer with the
-# versions of the system the initramfs was built for.
-footer = Sprite(load("footer.png"));
-footer.SetPosition(px(0), global.sh - 80 * global.s, 10);
 
 #----------------------------------------- Lock stage --------------------------------
 
-emblem = piece("emblem.png", layout.emblem, 20);
-wordmark = piece("wordmark.png", layout.wordmark, 20);
-lock = piece("lock.png", layout.lock, 20);
-verify = piece("verify.png", layout.verify, 20);
-
-field.image["focus"] = load("field.png");
-field.image["error"] = load("field-error.png");
-field.image["ok"] = load("field-ok.png");
-field.image["checking"] = field.image["focus"];
-field.sprite = Sprite(field.image["focus"]);
+emblem = Sprite();
+wordmark = Sprite();
+lock = Sprite();
+verify = Sprite();
+field.sprite = Sprite();
+label.sprite = Sprite();
+label.text = "";
 
 # The field's centre (its glow is symmetric) anchors the dots, the block and the shake.
 field.cx = layout.field.x + layout.field.w / 2;
@@ -422,12 +442,44 @@ field.l["ok"] = layout.field_ok;
 
 # Enough dots to fill the row; the newest 21 show once it overflows.
 DOTS = 24;
-dot.image = load("dot.png");
 for (slot = 0; slot < DOTS; slot++) {
-  dot.sprite[slot] = Sprite(dot.image);
+  dot.sprite[slot] = Sprite();
   dot.sprite[slot].SetOpacity(0);
 }
-block.sprite = Sprite(load("block.png"));
+block.sprite = Sprite();
+
+fun text_image(text, red, green, blue) {
+  return Image.Text(text, red, green, blue, 1, "monospace " + Math.Int(13 * global.s + 0.5));
+}
+
+fun setup_lock() {
+  piece(emblem, "emblem.png", layout.emblem, 20);
+  piece(wordmark, "wordmark.png", layout.wordmark, 20);
+  piece(lock, "lock.png", layout.lock, 20);
+  piece(verify, "verify.png", layout.verify, 20);
+
+  field.image["focus"] = load("field.png");
+  field.image["error"] = load("field-error.png");
+  field.image["ok"] = load("field-ok.png");
+  field.image["checking"] = field.image["focus"];
+
+  dot.image = load("dot.png");
+  for (slot = 0; slot < DOTS; slot++) dot.sprite[slot].SetImage(dot.image);
+  block.sprite.SetImage(load("block.png"));
+
+  set_label(label.text);
+}
+
+fun set_label(text) {
+  label.text = text;
+  if (text == "") {
+    label.sprite.SetOpacity(0);
+    return;
+  }
+  label.sprite.SetImage(text_image(text, 0.486, 0.580, 0.502));
+  label.sprite.SetPosition(px(960) - label.sprite.GetImage().GetWidth() / 2,
+                           py(layout.verify.y + layout.verify.h / 2) - label.sprite.GetImage().GetHeight() / 2, 20);
+}
 
 # From the mockup's CSS: 0.62em dots and block, 6px gap, a 381px field with 3px borders
 # and 18px padding, so 339px for the row before it clamps to the right edge.
@@ -438,6 +490,10 @@ INNER = 339;
 global.state = "focus";
 global.bullets = 0;
 global.prompted = 0;
+global.question = 0;
+global.first_prompt = "";
+global.many_prompts = 0;
+answer.sprite = Sprite();
 global.shake_tick = -100;
 global.phase = 0;
 
@@ -458,7 +514,14 @@ fun draw_field(visible) {
   field.sprite.SetPosition(px(l.x) + dx, py(l.y), 30);
   field.sprite.SetOpacity(visible);
 
+  answer.sprite.SetOpacity(flag(visible && global.question));
+  if (global.question) {
+    answer.sprite.SetPosition(px(field.cx) - answer.sprite.GetImage().GetWidth() / 2 + dx,
+                              py(field.cy) - answer.sprite.GetImage().GetHeight() / 2, 31);
+  }
+
   n = global.bullets;
+  if (global.question) n = 0;
   width = (n + 1) * DOT + n * GAP;
   left = field.cx - width / 2;
   if (width > INNER) left = field.cx + INNER / 2 - width;
@@ -471,7 +534,7 @@ fun draw_field(visible) {
     dot.sprite[i].SetPosition(px(x + DOT / 2) - dot.image.GetWidth() / 2 + dx,
                               py(field.cy) - dot.image.GetHeight() / 2, 31);
     # Dots pushed out of the row's left edge are clipped, as by the row's overflow.
-    if (visible && first + i < n && x >= field.cx - INNER / 2 - 0.5) dot.sprite[i].SetOpacity(1);
+    if (visible && !global.question && first + i < n && x >= field.cx - INNER / 2 - 0.5) dot.sprite[i].SetOpacity(1);
     else dot.sprite[i].SetOpacity(0);
   }
 
@@ -481,23 +544,26 @@ fun draw_field(visible) {
   # steps(1) blink: on for the first half of every second, only while typing is possible.
   global.phase = Math.Int(global.tick * 2 / TICKS) % 2;
   on = global.state == "focus" || global.state == "error";
-  if (visible && on && global.phase == 0) block.sprite.SetOpacity(1);
+  if (visible && on && !global.question && global.phase == 0) block.sprite.SetOpacity(1);
   else block.sprite.SetOpacity(0);
 
   if (visible && global.state == "checking") verify.SetOpacity(1);
   else verify.SetOpacity(0);
+  label.sprite.SetOpacity(flag(visible && label.text != "" && global.state != "checking"));
 }
 
 #----------------------------------------- Init stage --------------------------------
 
 boy.sprite = Sprite();
-boy.sprite.SetPosition(px(810 - layout.boy_pad), py(layout.bar_box.y - 36 - 20 - 390 - layout.boy_pad), 20);
-
 bar.sprite = Sprite();
-bar.sprite.SetPosition(px(layout.bar_box.x), py(layout.bar_box.y), 20);
 pct.sprite = Sprite();
-pct.sprite.SetPosition(px(layout.bar_box.x + layout.bar_box.w + 14 - layout.pct_pad),
-                       py(layout.bar_box.y + layout.bar_box.h / 2 - 10 - layout.pct_pad), 20);
+
+fun setup_init() {
+  boy.sprite.SetPosition(px(810 - layout.boy_pad), py(layout.bar_box.y - 36 - 20 - 390 - layout.boy_pad), 20);
+  bar.sprite.SetPosition(px(layout.bar_box.x), py(layout.bar_box.y), 20);
+  pct.sprite.SetPosition(px(layout.bar_box.x + layout.bar_box.w + 14 - layout.pct_pad),
+                         py(layout.bar_box.y + layout.bar_box.h / 2 - 10 - layout.pct_pad), 20);
+}
 
 status.sprite = Sprite();
 status.file[1] = "status-1.png"; status.x[1] = layout.status_1.x; status.y[1] = layout.status_1.y;
@@ -506,9 +572,11 @@ status.file[3] = "status-3.png"; status.x[3] = layout.status_3.x; status.y[3] = 
 
 # Frames are loaded the first time they are shown, so the lock stage comes up fast.
 cache.loaded = 0;
+global.generation = 0;
 fun cached(file) {
-  if (!cache[file]) cache[file] = load(file);
-  return cache[file];
+  key = global.generation + ":" + file;
+  if (!cache[key]) cache[key] = load(file);
+  return cache[key];
 }
 
 # The mockup's INIT_STEPS: percent reached at each cumulative time, with a .3s linear
@@ -572,6 +640,15 @@ global.stage = "idle";
 global.tick = 0;
 global.init_tick = 0;
 
+fun apply_stage() {
+  name = global.stage;
+  emblem.SetOpacity(flag(name != "init"));
+  wordmark.SetOpacity(flag(name != "init"));
+  lock.SetOpacity(flag(name == "lock"));
+  draw_field(flag(name == "lock"));
+  draw_init(flag(name == "init"));
+}
+
 fun show_stage(name) {
   global.stage = name;
   if (name == "init") {
@@ -580,11 +657,7 @@ fun show_stage(name) {
     global.bar_from = 0;
     global.bar_now = 0;
   }
-  emblem.SetOpacity(flag(name != "init"));
-  wordmark.SetOpacity(flag(name != "init"));
-  lock.SetOpacity(flag(name == "lock"));
-  draw_field(flag(name == "lock"));
-  draw_init(flag(name == "init"));
+  apply_stage();
 }
 
 fun refresh_callback() {
@@ -633,8 +706,17 @@ fun granted() {
   }
 }
 
+fun note_prompt(prompt) {
+  if (global.first_prompt == "") global.first_prompt = prompt;
+  else if (prompt != global.first_prompt) global.many_prompts = 1;
+  if (global.many_prompts) set_label(prompt);
+  else set_label("");
+}
+
 fun display_password_callback(prompt, bullets) {
   global.prompted = 1;
+  global.question = 0;
+  note_prompt(prompt);
   if (global.stage != "lock") show_stage("lock");
   if (global.state == "checking") {
     # Asked again after an answer: the passphrase was refused.
@@ -656,13 +738,54 @@ fun display_normal_callback() {
   }
 }
 
-# The root filesystem mounted, or the real root's systemd reporting: the volume opened.
+fun display_question_callback(prompt, entry) {
+  global.prompted = 1;
+  global.question = 1;
+  set_label(prompt);
+  answer.sprite.SetImage(text_image(entry + "_", 0.839, 1, 0.890));
+  if (global.stage != "lock") show_stage("lock");
+  if (global.state == "checking") {
+    global.state = "error";
+    global.shake_tick = global.tick;
+  } else if (global.state == "ok") {
+    global.state = "focus";
+  }
+  draw_field(1);
+}
+
+# The root filesystem mounted, or systemd reporting the encrypted volume open.
 fun root_mounted_callback() {
   granted();
 }
 
 fun update_status_callback(text) {
-  granted();
+  if (text.SubString(0, 19) == "systemd-cryptsetup@") granted();
+}
+
+message.sprite = Sprite();
+message.text = "";
+
+fun draw_message() {
+  if (message.text == "") {
+    message.sprite.SetOpacity(0);
+    return;
+  }
+  message.sprite.SetImage(text_image(message.text, 0.173, 0.682, 0.180));
+  message.sprite.SetPosition(px(960) - message.sprite.GetImage().GetWidth() / 2,
+                             py(832) - message.sprite.GetImage().GetHeight() / 2, 20);
+  message.sprite.SetOpacity(1);
+}
+
+fun display_message_callback(text) {
+  message.text = text;
+  draw_message();
+}
+
+fun hide_message_callback(text) {
+  if (text == message.text) {
+    message.text = "";
+    draw_message();
+  }
 }
 
 fun quit_callback() {
@@ -674,6 +797,9 @@ fun quit_callback() {
 }
 
 Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayQuestionFunction(display_question_callback);
+Plymouth.SetDisplayMessageFunction(display_message_callback);
+Plymouth.SetHideMessageFunction(hide_message_callback);
 Plymouth.SetDisplayNormalFunction(display_normal_callback);
 Plymouth.SetRootMountedFunction(root_mounted_callback);
 Plymouth.SetUpdateStatusFunction(update_status_callback);
@@ -685,4 +811,21 @@ fun progress_callback(duration, progress) {
 
 Plymouth.SetBootProgressFunction(progress_callback);
 
+fun setup() {
+  geometry();
+  global.generation++;
+  setup_backdrop();
+  setup_lock();
+  setup_init();
+  draw_message();
+}
+
+fun hotplug_callback() {
+  setup();
+  apply_stage();
+}
+
+Plymouth.SetDisplayHotplugFunction(hotplug_callback);
+
+setup();
 show_stage("idle");

@@ -5,6 +5,7 @@
 # the original's took (measured on that 1920x1080 wallpaper, no longer shipped) and
 # centred where it sat. Fonts are the closest open ones: PT Sans Narrow Bold for the
 # wordmark, Yellowtail for the script line. Needs rsvg-convert and magick.
+# Usage: tools/build-wallpaper
 
 set -euo pipefail
 

@@ -197,7 +197,7 @@ Item {
 
         // @keyframes holo
         SequentialAnimation {
-          running: root.visible && !root.granting
+          running: root.loadBackground && root.visible && !root.granting
           loops: Animation.Infinite
           ParallelAnimation {
             NumberAnimation { target: emblem; property: "opacity"; to: 1; duration: 2250; easing.type: Easing.InOutSine }
@@ -488,7 +488,8 @@ Item {
 
     Image {
       anchors.fill: parent
-      source: root.loadBackground ? Qt.resolvedUrl("assets/please-stand-by.jpg") : ""
+      source: root.loadBackground && (root.authenticatingPassword || root.granting || granted.visible)
+        ? Qt.resolvedUrl("assets/please-stand-by.jpg") : ""
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       sourceSize.width: width

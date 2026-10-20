@@ -6,14 +6,14 @@
 # so updates keep plugins you disabled off.
 # Usage: vault-tec-plugins [install|uninstall] [plugin-id...]   (default: install, every plugin)
 
-SRC="$(cd "$(dirname "$0")/../plugins" && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="$HOME/.config/omarchy/plugins"
 
 plugin_ids() {
   if (($#)); then
     printf '%s\n' "$@"
   else
-    for dir in "$SRC"/*/; do basename "$dir"; done
+    for dir in "$ROOT"/plugins/*/; do basename "$dir"; done
   fi
 }
 
@@ -33,11 +33,11 @@ install() {
   mkdir -p "$DEST"
   local fresh=() changed=0 id
   for id in $(plugin_ids "$@"); do
-    [[ -d $SRC/$id ]] || { echo "No plugin $id in $SRC" >&2; exit 1; }
+    [[ -d $ROOT/plugins/$id ]] || { echo "No plugin $id in $ROOT/plugins" >&2; exit 1; }
   done
   for id in $(plugin_ids "$@"); do
     [[ -e $DEST/$id ]] || fresh+=("$id")
-    [[ -n $(rsync -a --delete --itemize-changes "$SRC/$id/" "$DEST/$id/") ]] && changed=1
+    [[ -n $(rsync -a --delete --itemize-changes "$ROOT/plugins/$id/" "$DEST/$id/") ]] && changed=1
   done
   ((changed)) || return 0
   restart_shell || exit 1

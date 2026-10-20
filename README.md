@@ -24,7 +24,7 @@ The Pip-Boy menu (**Super + Space**) looks and works like Omarchy's own menu, wi
 
 Each status panel (network, Bluetooth, audio, display, power, clock, weather, agents) keeps Omarchy's controls and adds a Vault Boy on a scanlined screen. This is the power panel:
 
-<img src="preview-panel.png" width="395" alt="Power panel">
+<img src="preview-panel.png" width="380" alt="Power panel">
 
 ### Lock and boot
 

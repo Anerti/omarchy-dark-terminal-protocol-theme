@@ -17,7 +17,7 @@ Panel {
   // permits — needed for the toggleNetwork method below.
   manageIpc: false
 
-  readonly property color valueColor: Style.hoverStateColor(root.bar.foreground, Commons.Color.accent)
+  readonly property color valueColor: root.bar.foreground
   readonly property color currentRowFill: Commons.Color.menu.selectedBackground
   readonly property color currentRowText: Commons.Color.menu.selectedText
   readonly property bool artFits: {

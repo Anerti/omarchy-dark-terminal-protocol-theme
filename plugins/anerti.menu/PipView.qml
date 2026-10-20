@@ -635,7 +635,7 @@ PanelWindow {
                 playing: pip.visible
                 fillMode: Image.PreserveAspectFit
                 visible: false
-                cache: true
+                cache: false
               }
 
               MultiEffect {

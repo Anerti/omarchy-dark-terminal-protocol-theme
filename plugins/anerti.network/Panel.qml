@@ -1618,6 +1618,9 @@ Panel {
     foreground: root.bar.foreground
     fill: isConnected ? root.currentRowFill : root.hoverFill
     currentFill: root.currentRowFill
+    borderSpec: hasCursor
+      ? Border.controlSpec(current ? "focus" : "hover-cursor", foreground, accent)
+      : (current ? Border.controlSpec("selected", foreground, accent) : Border.none())
     // Gate on the matching *Kind/*Reason being non-empty so a hidden-SSID
     // row (ssid == "") doesn't match the "" defaults of actionSsid etc.
     readonly property bool isBusy: root.actionKind !== "" && root.actionSsid === (net ? net.ssid : "")
@@ -1664,8 +1667,8 @@ Panel {
 
     readonly property color statusColor: {
       if (isFailed) return root.bar.urgent
-      if (isBusy) return root.bar.foreground
       if (isConnected) return root.currentRowText
+      if (isBusy) return root.bar.foreground
       return Qt.darker(root.bar.foreground, 1.5)
     }
 

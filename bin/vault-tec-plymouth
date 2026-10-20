@@ -45,6 +45,7 @@ check_build() {
     echo "plymouth/vault-tec is incomplete (${missing[*]}): run tools/build-plymouth again" >&2
     exit 1
   fi
+  "$ROOT/tools/build-plymouth" --check
 }
 
 install() {

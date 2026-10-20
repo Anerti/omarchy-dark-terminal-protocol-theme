@@ -921,6 +921,9 @@ Panel {
     foreground: root.bar.foreground
     fill: isConnected ? root.currentRowFill : root.hoverFill
     currentFill: root.currentRowFill
+    borderSpec: hasCursor
+      ? Border.controlSpec(current ? "focus" : "hover-cursor", foreground, accent)
+      : (current ? Border.controlSpec("selected", foreground, accent) : Border.none())
 
     readonly property string statusText: {
       if (!dev) return ""
@@ -1033,8 +1036,8 @@ Panel {
         visible: row.showForgetButton
         iconText: "󰅙"
         tooltipText: "Forget"
-        foreground: root.bar.foreground
-        hoverColor: root.bar.foreground
+        foreground: row.isConnected ? root.currentRowText : root.bar.foreground
+        hoverColor: foreground
         fontFamily: root.bar.fontFamily
         hasCursor: row.rowSelected && root.actionFocused
         onHovered: function(isHovered) {

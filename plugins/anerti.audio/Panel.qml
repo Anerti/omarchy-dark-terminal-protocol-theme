@@ -1032,6 +1032,9 @@ Panel {
     foreground: root.bar.foreground
     fill: isActive ? root.currentRowFill : root.hoverFill
     currentFill: root.currentRowFill
+    borderSpec: hasCursor
+      ? Border.controlSpec(current ? "focus" : "hover-cursor", foreground, accent)
+      : (current ? Border.controlSpec("selected", foreground, accent) : Border.none())
     implicitHeight: sinkInner.implicitHeight + Style.spacing.xl
 
     Row {
@@ -1093,6 +1096,9 @@ Panel {
     foreground: root.bar.foreground
     fill: isActive ? root.currentRowFill : root.hoverFill
     currentFill: root.currentRowFill
+    borderSpec: hasCursor
+      ? Border.controlSpec(current ? "focus" : "hover-cursor", foreground, accent)
+      : (current ? Border.controlSpec("selected", foreground, accent) : Border.none())
     implicitHeight: sourceInner.implicitHeight + Style.spacing.xl
 
     Row {

@@ -28,9 +28,17 @@ There is no test suite, linter config or CI; see Verifying.
 
 ### Plugins
 
-- `anerti.menu`: Pip-Boy menu (replaces `omarchy.menu`). `Menu.qml` is the built-in's, plus the
-  Vault-Tec logo and the section's Vault Boy GIF above the card, and a private app library
-  for when the shell hands it none.
+- `anerti.menu`: Pip-Boy menu (replaces `omarchy.menu`). `Menu.qml` is the built-in's with no
+  comments, plus (keep these when syncing it with a new release):
+  - above the card, the Vault-Tec logo (20 px tall, as in the bar's wedge) and the Vault Boy GIF
+    of the highlighted row's section (`artSections`; `artZooms` enlarges `remove`), spaced
+    evenly with the search line by `brandGap`. Prompts (`select`/`input`) keep the bare card;
+  - a centred search line with a blinking block cursor, and no label on the root menu;
+  - the card 380 wide instead of 300;
+  - the section path of the highlighted search result in the selected text colour;
+  - `RollWipe` in its own full-screen, click-through window, played when the menu shows or
+    hides, unless a roll is still running;
+  - a private app library for when the shell hands it none.
 - `anerti.lock`: Omarchy terminal lock screen (`authentication` capability).
 - `anerti.workspaces`: the Vault-Tec wedge, which is also the bar's `centerAnchor` and stands in
   for the Omarchy menu button.

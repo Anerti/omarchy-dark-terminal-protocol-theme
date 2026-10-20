@@ -980,7 +980,7 @@ Item {
     }
     onVisibleChanged: {
       if (!visible) { cardTop = -1; maxRowsHeight = -1 }
-      wipe.run()
+      if (!wipe.running) wipe.run()
     }
 
     Rectangle {

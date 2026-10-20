@@ -1138,7 +1138,7 @@ Item {
             anchors.fill: artGif
             source: artGif
             colorization: 1.0
-            colorizationColor: "#d6ffe3"
+            colorizationColor: "#2cae2e"
             shadowEnabled: true
             shadowColor: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.6)
             shadowBlur: 0.5

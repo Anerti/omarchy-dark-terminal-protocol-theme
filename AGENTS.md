@@ -74,11 +74,14 @@ copyright) is drawn at install time by `render-footer`, not baked in.
   installed.
 - **Boot screen:** `bin/vault-tec-plymouth install` uses **sudo**, copies to
   `/usr/share/plymouth/themes/vault-tec`, adds an initcpio hook (`render-footer` per
-  initramfs) and a pacman hook (rebuild on Omarchy upgrades), then rebuilds the
-  initramfs (`limine-mkinitcpio`). `test` previews it from a text console with the
-  passphrase `omarchy`. `uninstall` returns to Omarchy's `omarchy` theme.
-  Omarchy's "set boot screen from theme" menu item (`omarchy-plymouth-set-by-theme`)
-  switches the default back to `omarchy`; `omarchy theme set` does not.
+  initramfs) and a pacman hook (rebuild on Omarchy upgrades and kernel installs), then
+  rebuilds the initramfs (`limine-mkinitcpio`). It only writes what changed, so
+  re-running it on a current install does no work and rebuilds nothing. The first
+  install records the default theme; `uninstall` restores that one (Omarchy's `omarchy`
+  when there is no record). `test` previews it from a text console with the
+  passphrase `omarchy`. Omarchy's "set boot screen from theme" menu item
+  (`omarchy-plymouth-set-by-theme`) switches the default back to `omarchy`; `omarchy
+  theme set` does not.
 - **CRT shader:** the flag file `~/.local/state/omarchy/toggles/vault-tec-crt`, read by
   `hyprland.lua`.
 

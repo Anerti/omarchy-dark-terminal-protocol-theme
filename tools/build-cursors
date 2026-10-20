@@ -2,6 +2,7 @@
 # Build the VaultTec XCursor theme (cursors/VaultTec) from the mockup's cursor SVGs
 # (assets/css/fallout.css --cursor-*). Shapes it does not draw are inherited from Adwaita.
 # Needs rsvg-convert and magick.
+# Usage: tools/build-cursors
 
 import os
 import shutil

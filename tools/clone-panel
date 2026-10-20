@@ -17,6 +17,7 @@ name="$2"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 source_dir=$(omarchy-plugin-catalog | jq -r --arg id "$source_id" '.[] | select(.firstParty and .id == $id) | .sourceDir')
 [[ -n $source_dir ]] || { echo "unknown built-in plugin: $source_id" >&2; exit 1; }
+[[ -f $source_dir/manifest.json ]] || { echo "$source_id has no plugin folder of its own (a bar widget?)" >&2; exit 1; }
 
 target="$root/plugins/anerti.${source_id#omarchy.}"
 [[ ! -e $target ]] || { echo "$target already exists" >&2; exit 1; }

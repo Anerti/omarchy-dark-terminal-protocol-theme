@@ -3,6 +3,7 @@
 # Use the VaultTec cursors while the dark-terminal-protocol theme is active, and put the
 # previous cursor theme back when another theme is set. Installed as a theme-set
 # hook (theme slug in $1) and a post-boot hook (no argument: read the current theme).
+# Usage: vault-tec-cursor [theme-slug]
 
 THEME="${1:-$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null)}"
 SAVED="$HOME/.local/state/vault-tec/cursor-previous"

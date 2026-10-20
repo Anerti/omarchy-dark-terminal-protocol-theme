@@ -20,6 +20,7 @@ THEME=/usr/share/plymouth/themes/vault-tec
 INITCPIO_HOOK=/etc/initcpio/install/vault-tec-plymouth
 INITCPIO_CONF=/etc/mkinitcpio.conf.d/zz-vault-tec-plymouth.conf
 PACMAN_HOOK=/etc/pacman.d/hooks/vault-tec-plymouth.hook
+PREVIOUS=/var/lib/vault-tec-plymouth/previous-theme
 
 rebuild() {
   if command -v limine-mkinitcpio >/dev/null; then
@@ -48,14 +49,37 @@ check_build() {
   "$ROOT/tools/build-plymouth" --check
 }
 
+put() {
+  local tmp
+  tmp=$(mktemp)
+  cat >"$tmp"
+  if cmp -s "$tmp" "$2"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  sudo install -D -m "$1" "$tmp" "$2"
+  rm -f "$tmp"
+}
+
 install() {
   check_build
+  local changed=0 footer
 
-  sudo install -d -m 0755 "$THEME"
-  sudo rsync -a --delete --chown=root:root --chmod=D755,F644 "$ROOT/plymouth/vault-tec/" "$THEME/"
-  sudo chmod 0755 "$THEME/render-footer"
+  if ! diff -rq -x footer.png "$ROOT/plymouth/vault-tec" "$THEME" >/dev/null 2>&1; then
+    sudo install -d -m 0755 "$THEME"
+    sudo rsync -a --delete --exclude=footer.png --chown=root:root --chmod=D755,F644 \
+      "$ROOT/plymouth/vault-tec/" "$THEME/"
+    sudo chmod 0755 "$THEME/render-footer"
+    changed=1
+  fi
 
-  sudo install -D -m 0644 /dev/stdin "$INITCPIO_HOOK" <<'EOF'
+  # The footer is baked into each initramfs by the hook, so a new one needs a rebuild too.
+  footer=$(mktemp)
+  "$ROOT/plymouth/vault-tec/render-footer" "$footer" || cp "$ROOT/plymouth/vault-tec/footer.png" "$footer"
+  put 0644 "$THEME/footer.png" <"$footer" && changed=1
+  rm -f "$footer"
+
+  put 0644 "$INITCPIO_HOOK" <<'EOF' && changed=1
 #!/bin/bash
 
 # Vault-Tec boot screen: draw the footer for the kernel this initramfs boots.
@@ -78,9 +102,9 @@ help() {
 EOF
 
   # After plymouth, which copies the theme the footer is drawn over.
-  echo 'HOOKS+=(vault-tec-plymouth)' | sudo install -D -m 0644 /dev/stdin "$INITCPIO_CONF"
+  echo 'HOOKS+=(vault-tec-plymouth)' | put 0644 "$INITCPIO_CONF" && changed=1
 
-  sudo install -D -m 0644 /dev/stdin "$PACMAN_HOOK" <<'EOF'
+  put 0644 "$PACMAN_HOOK" <<'EOF' || true
 [Trigger]
 Type = Package
 Operation = Install
@@ -88,23 +112,50 @@ Operation = Upgrade
 Target = omarchy
 Target = omarchy-dev
 
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/modules/*/vmlinuz
+
 [Action]
 Description = Redrawing the Vault-Tec boot screen footer...
 When = PostTransaction
-Exec = /bin/sh -c '[ "$(plymouth-set-default-theme)" = vault-tec ] || exit 0; if command -v limine-mkinitcpio >/dev/null; then limine-mkinitcpio; else mkinitcpio -P; fi'
+NeedsTargets
+Exec = /bin/sh -c 'theme=/usr/share/plymouth/themes/vault-tec; [ "$(plymouth-set-default-theme)" = vault-tec ] || exit 0; "$theme/render-footer" "$theme/footer.png" || true; grep -q "^usr/lib/modules/" && exit 0; if command -v limine-mkinitcpio >/dev/null; then limine-mkinitcpio; else mkinitcpio -P; fi'
 EOF
 
-  sudo plymouth-set-default-theme vault-tec
-  rebuild
+  local current
+  current=$(plymouth-set-default-theme)
+  if [[ $current != vault-tec ]]; then
+    echo "$current" | put 0644 "$PREVIOUS" || true
+    sudo plymouth-set-default-theme vault-tec
+    changed=1
+  fi
+
+  if ((changed)); then
+    rebuild
+  else
+    echo "The Vault-Tec boot screen is installed and current."
+  fi
 }
 
 uninstall() {
+  local previous
   sudo rm -f "$INITCPIO_HOOK" "$INITCPIO_CONF" "$PACMAN_HOOK"
   if [[ $(plymouth-set-default-theme) == vault-tec ]]; then
-    sudo plymouth-set-default-theme omarchy
+    previous=$(cat "$PREVIOUS" 2>/dev/null || true)
+    if [[ -z $previous || $previous == vault-tec || ! -d /usr/share/plymouth/themes/$previous ]]; then
+      previous=omarchy
+    fi
+    sudo rm -f "$PREVIOUS"
+    sudo rm -rf "$THEME"
+    sudo plymouth-set-default-theme "$previous"
+    rebuild
+  else
+    sudo rm -f "$PREVIOUS"
+    sudo rm -rf "$THEME"
   fi
-  sudo rm -rf "$THEME"
-  rebuild
 }
 
 test_run() {

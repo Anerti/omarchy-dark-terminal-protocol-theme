@@ -777,6 +777,7 @@ Panel {
             ToggleSwitch {
               id: powerSwitch
               checked: root.anyAudible
+              rounded: false
               hasCursor: root.headerHasCursor
               foreground: root.bar.foreground
               anchors.right: parent.right

@@ -18,9 +18,9 @@ The bar puts a Vault-Tec wedge in the centre: the winged Omarchy mark, with the 
 
 ### Menu and panels
 
-The Pip-Boy menu (**Super + Space**) is a full-screen terminal: entries on the left, an animated Vault Boy for each one on the right, and the sections as Pip-Boy tabs along the bottom.
+The Pip-Boy menu (**Super + Space**) looks and works like Omarchy's own menu, with the Vault-Tec logo and an animated Vault Boy for the section you are in at the top.
 
-![Pip-Boy menu](preview-menu.png)
+<img src="preview-menu.png" width="380" alt="Pip-Boy menu">
 
 Each status panel (network, Bluetooth, audio, display, power, clock, weather, agents) keeps Omarchy's controls and adds a Vault Boy on a scanlined screen. This is the power panel:
 

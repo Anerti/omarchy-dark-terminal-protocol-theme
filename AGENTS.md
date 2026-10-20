@@ -28,7 +28,17 @@ There is no test suite, linter config or CI; see Verifying.
 
 ### Plugins
 
-- `anerti.menu`: Pip-Boy menu (replaces `omarchy.menu`).
+- `anerti.menu`: Pip-Boy menu (replaces `omarchy.menu`). `Menu.qml` is the built-in's with no
+  comments, plus (keep these when syncing it with a new release):
+  - above the card, the Vault-Tec logo (20 px tall, as in the bar's wedge) and the Vault Boy GIF
+    of the highlighted row's section (`artSections`; `artZooms` enlarges `remove`), spaced
+    evenly with the search line by `brandGap`. Prompts (`select`/`input`) keep the bare card;
+  - a centred search line with a blinking block cursor, and no label on the root menu;
+  - the card 380 wide instead of 300;
+  - the section path of the highlighted search result in the selected text colour;
+  - `RollWipe` in its own full-screen, click-through window, played when the menu shows or
+    hides, unless a roll is still running;
+  - a private app library for when the shell hands it none.
 - `anerti.lock`: Omarchy terminal lock screen (`authentication` capability).
 - `anerti.workspaces`: the Vault-Tec wedge, which is also the bar's `centerAnchor` and stands in
   for the Omarchy menu button.
@@ -51,7 +61,7 @@ Widgets move between the two with their settings, so switching back and forth is
 | ------ | ------ | ------- |
 | `plymouth/vault-tec/*`, `plymouth/preview-*.png` | `plymouth/src/*`, `logo/vaulttec-omarchy.svg`, lock plugin font | `tools/build-plymouth` (headless `chromium`, `magick`) |
 | `cursors/VaultTec` | SVGs inside `tools/build-cursors` | `tools/build-cursors` (`rsvg-convert`, `magick`) |
-| `logo/vaulttec-omarchy.svg`, its copies in `anerti.lock` and `anerti.workspaces` (ink), `unlock.png` | `tools/build-logo` | `tools/build-logo [stroke] [gap]` (copies too); `[out] [fill]` writes one file only |
+| `logo/vaulttec-omarchy.svg`, its copies in `anerti.lock`, `anerti.menu` and `anerti.workspaces` (ink), `unlock.png` | `tools/build-logo` | `tools/build-logo [stroke] [gap]` (copies too); `[out] [fill]` writes one file only |
 | `backgrounds/1-omarchy-logo.jpg` | `tools/build-wallpaper`, `logo/` | `tools/build-wallpaper` (`rsvg-convert`, `magick`) |
 
 `tools/build-plymouth` measures every piece from the rendered mockup and writes the
@@ -108,7 +118,7 @@ out to `magick` / `chromium` / `rsvg-convert` via `subprocess.run(check=True)`.
   `clonedFrom`, and it adds `PanelArt.qml`.
 - `PanelArt.qml` is identical in all eight panels (tinted GIF + green glow). Change it in
   every copy, or the copies will diverge.
-- `ShareTechMono-Regular.ttf` is duplicated in `anerti.{lock,menu,workspaces}` because
+- `ShareTechMono-Regular.ttf` is duplicated in `anerti.{lock,workspaces}` because
   each plugin is installed standalone.
 - `RollWipe.qml` is identical in `anerti.menu` and `anerti.workspaces`. Keep the two copies
   in sync.

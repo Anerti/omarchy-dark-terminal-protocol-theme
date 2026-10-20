@@ -4,7 +4,7 @@
   "name": "Vault-Tec Pip-Boy menu",
   "version": "1.0.0",
   "author": "anerti",
-  "description": "Pip-Boy styled Omarchy menu from the Dark Terminal Protocol mockup",
+  "description": "Omarchy menu with the Vault-Tec logo and the section's Vault Boy on top",
   "kinds": [
     "menu"
   ],

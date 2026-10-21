@@ -63,6 +63,7 @@ Widgets move between the two with their settings, so switching back and forth is
 | `cursors/VaultTec` | SVGs inside `tools/build-cursors` | `tools/build-cursors` (`rsvg-convert`, `magick`) |
 | `logo/vaulttec-omarchy.svg`, its copies in `anerti.lock`, `anerti.menu` and `anerti.workspaces` (ink), `unlock.png` | `tools/build-logo` | `tools/build-logo [stroke] [gap]` (copies too); `[out] [fill]` writes one file only |
 | `backgrounds/1-omarchy-logo.jpg` | `tools/build-wallpaper`, `logo/` | `tools/build-wallpaper` (`rsvg-convert`, `magick`) |
+| `backgrounds/3-omarchy-wordmark.jpg` | `tools/build-wallpaper-wordmark`, `logo/omarchy-wordmark.svg` (omarchy.org/brand), the built-in themes' wallpapers | `tools/build-wallpaper-wordmark` (`rsvg-convert`, `magick`) |
 | `plugins/anerti.lock/assets/please-stand-by.jpg` (greyscale, tinted at runtime) | `tools/please-stand-by.jpg` (the green original) | `tools/build-standby` (`magick`) |
 
 `tools/build-plymouth` measures every piece from the rendered mockup and writes the

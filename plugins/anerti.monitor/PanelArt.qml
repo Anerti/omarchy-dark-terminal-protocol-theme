@@ -24,9 +24,9 @@ Item {
     anchors.fill: gif
     source: gif
     colorization: 1.0
-    colorizationColor: "#2cae2e"
+    colorizationColor: Color.foreground
     shadowEnabled: true
-    shadowColor: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.35)
+    shadowColor: Util.alpha(Color.foreground, 0.35)
     shadowBlur: 0.6
     shadowHorizontalOffset: 0
     shadowVerticalOffset: 0

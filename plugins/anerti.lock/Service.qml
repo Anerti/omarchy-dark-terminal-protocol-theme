@@ -312,7 +312,7 @@ Item {
 
     WlSessionLockSurface {
       id: lockSurface
-      color: "#020a05"
+      color: Qt.darker(Color.background, 2.3)
 
       LockView {
         id: lockView

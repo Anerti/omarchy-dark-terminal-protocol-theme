@@ -11,10 +11,10 @@ BarWidget {
   id: root
   moduleName: "anerti.workspaces"
 
-  readonly property color fg: "#2cae2e"
-  readonly property color fgBright: "#d6ffe3"
-  readonly property color fgDim: "#2aa52c"
-  readonly property color ink: "#04160b"
+  readonly property color fg: Color.foreground
+  readonly property color fgBright: Style.focusStateColor(Color.foreground, Color.accent, Color.urgent)
+  readonly property color fgDim: Qt.darker(Color.foreground, 1.05)
+  readonly property color ink: Color.background
 
   readonly property real lean: Math.tan(22 * Math.PI / 180)
   readonly property real tuck: 16
@@ -155,7 +155,7 @@ BarWidget {
         layer.effect: MultiEffect {
           brightness: wedgeButton.tooltipHovered ? 0.1 : 0
           shadowEnabled: wedgeButton.tooltipHovered
-          shadowColor: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.7)
+          shadowColor: Util.alpha(root.fg, 0.7)
           shadowBlur: 0.6
           shadowHorizontalOffset: 0
           shadowVerticalOffset: 0
@@ -187,6 +187,15 @@ BarWidget {
           sourceSize.height: height * 2
           fillMode: Image.PreserveAspectFit
           smooth: true
+          visible: false
+        }
+
+        MultiEffect {
+          anchors.fill: logo
+          source: logo
+          brightness: 1.0
+          colorization: 1.0
+          colorizationColor: root.ink
         }
       }
 
@@ -219,7 +228,7 @@ BarWidget {
     readonly property bool hovered: button.tooltipHovered
     readonly property real pillHeight: focused ? 29 : root.heights[Math.min(distance, 2)]
     readonly property color fill: focused ? root.fg
-      : Qt.rgba(214 / 255, 1, 227 / 255, hovered ? 0.20 : (occupied ? 0.12 : 0.06))
+      : Util.alpha(root.fgBright, hovered ? 0.20 : (occupied ? 0.12 : 0.06))
 
     width: root.widths[Math.min(distance, 2)]
     height: root.barSize
@@ -235,7 +244,7 @@ BarWidget {
       layer.enabled: pill.focused
       layer.effect: MultiEffect {
         shadowEnabled: true
-        shadowColor: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.5)
+        shadowColor: Util.alpha(root.fg, 0.5)
         shadowBlur: 0.35
         shadowHorizontalOffset: 0
         shadowVerticalOffset: 0

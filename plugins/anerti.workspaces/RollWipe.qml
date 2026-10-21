@@ -1,9 +1,10 @@
 import QtQuick
+import qs.Commons
 
 Item {
   id: root
 
-  readonly property color phosphor: "#d6ffe3"
+  readonly property color phosphor: Style.focusStateColor(Color.foreground, Color.accent, Color.urgent)
   readonly property real bandHeight: height * 0.32
   readonly property bool running: roll.running
 
@@ -28,7 +29,7 @@ Item {
         y: index * 8 + 5
         width: lines.width
         height: 2
-        color: Qt.rgba(214 / 255, 1, 227 / 255, 0.22)
+        color: Util.alpha(root.phosphor, 0.22)
       }
     }
   }
@@ -39,11 +40,11 @@ Item {
     height: root.bandHeight
     y: -height
     gradient: Gradient {
-      GradientStop { position: 0.0; color: Qt.rgba(214 / 255, 1, 227 / 255, 0) }
-      GradientStop { position: 0.44; color: Qt.rgba(214 / 255, 1, 227 / 255, 0.06) }
-      GradientStop { position: 0.5; color: Qt.rgba(214 / 255, 1, 227 / 255, 0.5) }
-      GradientStop { position: 0.56; color: Qt.rgba(214 / 255, 1, 227 / 255, 0.06) }
-      GradientStop { position: 1.0; color: Qt.rgba(214 / 255, 1, 227 / 255, 0) }
+      GradientStop { position: 0.0; color: Util.alpha(root.phosphor, 0) }
+      GradientStop { position: 0.44; color: Util.alpha(root.phosphor, 0.06) }
+      GradientStop { position: 0.5; color: Util.alpha(root.phosphor, 0.5) }
+      GradientStop { position: 0.56; color: Util.alpha(root.phosphor, 0.06) }
+      GradientStop { position: 1.0; color: Util.alpha(root.phosphor, 0) }
     }
   }
 

@@ -63,6 +63,7 @@ Widgets move between the two with their settings, so switching back and forth is
 | `cursors/VaultTec` | SVGs inside `tools/build-cursors` | `tools/build-cursors` (`rsvg-convert`, `magick`) |
 | `logo/vaulttec-omarchy.svg`, its copies in `anerti.lock`, `anerti.menu` and `anerti.workspaces` (ink), `unlock.png` | `tools/build-logo` | `tools/build-logo [stroke] [gap]` (copies too); `[out] [fill]` writes one file only |
 | `backgrounds/1-omarchy-logo.jpg` | `tools/build-wallpaper`, `logo/` | `tools/build-wallpaper` (`rsvg-convert`, `magick`) |
+| `plugins/anerti.lock/assets/please-stand-by.jpg` (greyscale, tinted at runtime) | `tools/please-stand-by.jpg` (the green original) | `tools/build-standby` (`magick`) |
 
 `tools/build-plymouth` measures every piece from the rendered mockup and writes the
 1080p layout into `vault-tec.script` at `#@LAYOUT@`. Change layout in `boot.html`, not in
@@ -117,7 +118,7 @@ out to `magick` / `chromium` / `rsvg-convert` via `subprocess.run(check=True)`.
 - Create a new panel with `tools/clone-panel <omarchy.id> "<Vault-Tec name>"`. Like
   `omarchy plugin clone`, it keeps the internal ids so IPC still routes through
   `clonedFrom`, and it adds `PanelArt.qml`.
-- `PanelArt.qml` is identical in all eight panels (tinted GIF + green glow). Change it in
+- `PanelArt.qml` is identical in all eight panels (GIF tinted in the active theme's foreground, with a glow of it). Change it in
   every copy, or the copies will diverge.
 - `ShareTechMono-Regular.ttf` is duplicated in `anerti.{lock,workspaces}` because
   each plugin is installed standalone.

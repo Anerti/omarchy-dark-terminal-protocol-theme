@@ -26,15 +26,46 @@
 
   .stage { display: flex; flex-direction: column; align-items: center; }
   .stage[hidden] { display: none; }
-  .stage-lock { gap: 24px; }
+  /* The lock screen (anerti.lock's LockView.qml) at 1080p: a terminal column 1100px wide,
+     7vh from the top, its pieces 28px apart: the title, the emblem with 14px above and
+     below, the banner, a rule, then the prompt over its status line. */
+  .stage-lock {
+    position: fixed;
+    top: max(40px, 7vh);
+    left: 50%;
+    width: min(calc(100vw - 128px), 1100px);
+    transform: translateX(-50%);
+    align-items: stretch;
+    gap: 28px;
+  }
+  .locking .termlink, .locking .robco { visibility: hidden; }
 
+  /* TermText: 20px with .1em tracking, padded in front by the same so centred lines
+     centre, and a soft glow in the text's own colour. */
+  .term-text {
+    color: var(--fg);
+    font-size: 20px;
+    line-height: normal;
+    letter-spacing: .1em;
+    padding-left: .1em;
+    text-align: center;
+    white-space: pre;
+    text-shadow: 0 0 8px rgba(44, 174, 46, 0.45);
+  }
+  .emblem-slot {
+    position: relative;
+    align-self: center;
+    width: min(70%, 520px);
+    padding: 14px 0;
+  }
   .emblem {
-    width: min(78vw, 560px);
+    display: block;
+    width: 100%;
     height: auto;
+    opacity: .92;
     filter:
-      drop-shadow(0 0 6px rgba(44, 174, 46,0.6))
-      drop-shadow(0 0 28px rgba(44, 174, 46,0.4))
-      drop-shadow(0 0 64px rgba(44, 174, 46,0.22));
+      drop-shadow(0 0 5px rgba(44, 174, 46, 0.6))
+      drop-shadow(0 0 32px rgba(44, 174, 46, 0.4));
     animation: holo 4.5s ease-in-out infinite;
     user-select: none;
     -webkit-user-drag: none;
@@ -43,123 +74,44 @@
     0%, 100% { opacity: 0.92; transform: scale(1); }
     50% { opacity: 1; transform: scale(1.012); }
   }
-  .emblem-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 24px;
-  }
-  .wordmark {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    color: var(--fg);
-    opacity: .92;
-  }
-  .wordmark-name {
-    font-size: 1.5rem;
-    line-height: 1.1;
-    letter-spacing: .42em;
-    text-indent: .42em;
-    white-space: nowrap;
-  }
-  .wordmark-sub {
-    font-size: .8rem;
-    line-height: 1.4;
-    letter-spacing: .52em;
-    text-indent: .52em;
-    white-space: nowrap;
-  }
-  .field {
-    position: relative;
-    width: min(381px, 82vw);
-    height: 67px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 0 18px;
-    background: rgba(4,18,10,0.72);
-    border: 3px solid var(--line-strong);
-    border-radius: var(--radius);
-    box-shadow: inset 0 0 26px rgba(0,0,0,0.7), 0 0 22px rgba(44, 174, 46,0.18);
-    transition: border-color .15s ease, box-shadow .15s ease;
-  }
-  .field-wrap { position: relative; }
-  .lock-icon {
+  /* The bright line that draws the emblem in from the top, here at the end of its sweep. */
+  .reveal-line {
     position: absolute;
-    right: 100%;
-    top: 33px;
-    width: 23px;
-    height: 26px;
-    margin-right: 14px;
-    transform: translateY(-50%);
+    left: 0;
+    right: 0;
+    bottom: 12px;
+    height: 2px;
     background: var(--fg);
-    -webkit-mask: url("data:image/png;base64,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") center / contain no-repeat;
-    mask: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFQAAABgCAYAAACDgFV6AAAACXBIWXMAAAsTAAALEwEAmpwYAAAFs0lEQVR4nO2dTahVRRzAf++mKY2Whi4kCEyRyBAVnRA3IyhZKmKkRlSCpJtoVS3sa5MgUa0qIoooCimLRPSl6aLjoq8jpIRlSGYY4aJQU0+8etprMXMf3Ov13Tdn/ufjPecHd/HOm5n/f36crzln7tweakSSZg3gTveZBdwKTAYmuCIXgbPAKeA4cBQ4arT6r/xsO9NTdQJJmingPmA1sAS42bOJM8AXwC7gU6NVJpuhH5UJTdLsduBJ4AFACTWbAR8CLxutfhJq04vShSZpNh3YBqwrMP4AsAPYYrQ6WVCMjpQmNEmz64GngGeB8SWF7QO2Ai8Zrf4tI2ApQt1e+RGwsIx4HTgErC9jby1caJJmy7CH36SiY3XhHLDOaHWgyCCNIhtP0mw90Ev1MsHm0OtyKozC9tAkzR4EPigyRk4GgIeMVtuLaLyQziZpdjewGxhbRPsC9AOrjFafSzcsLjRJsxnAYWCidNvCXADmGa1OSDYqeg5N0mwc9gJUd5lgc9zhchZjjGRjwPPAfIF2zmGHk4eAn7Hjd7Dj+pnY268lhF/s5mNzfiawnUHEDnk3lPyesPPml8ArQG+3G3E3UFgBPAEsDojZD8yRGqpKCu0F7s1Z/RTwmNFqT87YK4HXsU+n8vCZ0WpFzrotiAhN0mwe8F3O6ruBDUars11LDp3DZOA9YFXOJuYbrQ6H5AByF6Wnc9Z7B1gTKhPAtbHGtZmHvH1oIXgPTdJsCnAa/wvcTmCt0epyaA5t+VwHfIyV68MlYJrR6s+Q+BJ76Hr8ZZ7AHuaiMgFcmxtcDB/GYPsShITQtTnqbDZaXRCI3RHX9uYcVfP0pYWgQz5Js/HYe0afm+N9Rqt7QuIOlyTN9gLLPar8A0wyWvXljRm6hy7CTybAi4Exi4w1Dtun3IQKneNZ/jfgYGBMHw66mD749qmFUKGzPMvvNVoNBMYcNi7WXs9qvn1qIVToTM/y3wTGy4NvTN8+tRAqdEL3Ii0cD4yXB9+Yvn1qoWyhwSOiHPjGrFToTZ7l/w6MlwffmL59aqHQl3TXIlGoMFGoMFGoMFGoMFGoMFGoMFGoMEM+D03SbCL2VcJy7FOYW9rq3NitjTYuAGXPh2/gN/FiADjf9vfv2Ffk+4CdQz0c7ygjSbMbgC3A4wSOHEYhfwGvAtuMVleMwq4Q6l4JfwLcVnxuI5pfgPvbXz23CE3SzGDfkwc9ILiGuIidxZc0NwwKdVNpvsWeFyPD5zxwV3MqTw9AkmZjsBOz5laX14jmCLDQaHWpedv0KFFmCHOxDulJ0qwHOylgepUZjQJOAjMa2NemUWY404FFDezE1YgMSxrA7KqzGEXMbgBTq85iFDG1QX2/+jISGRufNgkThQoThQoThQoThQpTZ6H9wBvYL3VNdJ/Fblt/hXkNifRXE6X4A1hptErbtn8FfJWk2bvAHmp4D13HPfQysLqDzEHc/1a7srWijkK3G62+7lbIlSlkEYEQaim0oLKlUEehPxZUthTqKPR89yK5ypZCHYWOaKJQYaJQYaJQYaJQYaJQYaJQYaJQYaJQYaJQYaJQYeoodEpBZUuhjkJ9FiOUWLhQlDoK3VRQ2VKoo9ClSZo90q2QK7O0hHy8qOtLurfdmlBvtS/64iYIbwJeqySzLtRV6FjgTWBTkmbvAz+47bOBh4EFVSXWjboKbbKAGsvrRB3PoSOaKFSYKFSYKFSYKFSYBvY3hyIy9DWw6ydHZDjdwH7xMyLDkQawv+osRhH7G0arY8BV52JGhk1qtDrWvMpvrTSV0cFWcLdNRqvd2B8ajeRjl3PYch+6Ef/F9CPW2cbmH4NCjVZnsA9so9ThcwJY6twBbSMlo9WvgCYe/sNhF6Cds0GuuipYkmargOeo7sdN68oh4IXmObOdrsusJWl2B7AMu1DJNMr7Gd660IcdTR4BDhithpzX/z8BL0OWetsadwAAAABJRU5ErkJggg==") center / contain no-repeat;
-    filter: drop-shadow(0 0 6px rgba(44, 174, 46,0.75));
-    pointer-events: none;
+    box-shadow: 0 0 8px rgba(44, 174, 46, 0.8);
+    visibility: hidden;
   }
-  .dots {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    max-width: 100%;
-    min-width: 0;
-    overflow: hidden;
+  .banner { display: flex; flex-direction: column; gap: 4px; }
+  .rule {
+    height: 2px;
+    background: var(--fg);
+    box-shadow: 0 0 8px rgba(44, 174, 46, 0.6);
   }
-  .dots.clamp { justify-content: flex-end; }
-  .dot {
-    flex: 0 0 auto;
-    width: .62em;
-    height: .62em;
-    border-radius: 50%;
-    background: var(--fg-bright);
-    box-shadow: 0 0 6px rgba(44, 174, 46,0.6);
-  }
+  .passphrase { display: flex; flex-direction: column; gap: 14px; }
+  .prompt-row { position: relative; display: flex; align-items: center; overflow: hidden; }
+  .prompt-row .term-text { font-size: 26px; text-align: left; }
+  .stars { padding-left: 0 !important; }
   .block {
     flex: 0 0 auto;
-    width: .62em;
-    height: 1.5rem;
+    width: 16px;
+    height: 26px;
     background: var(--fg);
-    box-shadow: 0 0 10px rgba(44, 174, 46,0.8);
     opacity: 0;
     pointer-events: none;
   }
   .block.on { animation: blink 1s steps(1) infinite; }
-  .field:focus-within { box-shadow: inset 0 0 26px rgba(0,0,0,0.7), 0 0 26px rgba(44, 174, 46,0.4); }
-  .field.error { border-color: var(--urgent); box-shadow: inset 0 0 26px rgba(0,0,0,0.7), 0 0 26px rgba(255,90,60,0.45); }
-  .field.ok { border-color: #2cae2e; box-shadow: inset 0 0 26px rgba(0,0,0,0.7), 0 0 30px rgba(44, 174, 46,0.5); }
-  .field input {
+  .passphrase input {
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-    background: transparent;
-    border: 0;
-    outline: none;
-    color: transparent;
-    font-family: var(--font);
-    font-size: 1.5rem;
-    text-align: center;
-    text-shadow: none;
-    caret-color: transparent;
+    opacity: 0;
   }
-  .status {
-    width: min(381px, 82vw);
-    height: 1.5rem;
-    margin-top: 14px;
-    text-align: center;
-    white-space: nowrap;
-    color: var(--fg);
-    font-size: .8rem;
-    letter-spacing: .14em;
-    text-shadow: var(--glow-soft);
-  }
+  .status { min-height: 23px; text-align: left; }
+  .status.denied { color: var(--urgent); text-shadow: 0 0 8px rgba(255, 90, 60, 0.45); }
+  .status.note { color: var(--fg-soft); text-shadow: 0 0 8px rgba(124, 148, 128, 0.45); }
   .termlink {
     position: fixed;
     top: 18px;
@@ -186,15 +138,6 @@
     text-shadow: var(--glow-soft);
     opacity: .92;
     white-space: nowrap;
-  }
-
-  .shake { animation: shake .4s linear; }
-  @keyframes shake {
-    0%,100% { transform: translateX(0); }
-    20% { transform: translateX(-8px); }
-    40% { transform: translateX(8px); }
-    60% { transform: translateX(-5px); }
-    80% { transform: translateX(5px); }
   }
 
   .about-body { display: flex; align-items: center; gap: 26px; }
@@ -228,8 +171,7 @@
     height: 100%;
     object-fit: cover;
     object-position: 41% 50%;
-    filter: grayscale(1) sepia(1) hue-rotate(70deg) saturate(3) brightness(1.05)
-      drop-shadow(0 0 10px rgba(44, 174, 46, 0.35));
+    filter: url(#phosphor) drop-shadow(0 0 10px rgba(44, 174, 46, 0.35));
   }
   .barline { position: relative; display: flex; align-items: center; justify-content: center; }
   .bar {
@@ -265,7 +207,7 @@
     transform: translateY(-50%);
     min-width: 3.4em;
     text-align: right;
-    color: var(--fg-bright);
+    color: var(--fg);
     font-size: .86rem;
     letter-spacing: .1em;
   }
@@ -293,32 +235,40 @@
 
   @media (prefers-reduced-motion: reduce) {
     .emblem { animation: none; }
-    .shake { animation: none; }
     .block.on { animation: none; opacity: 1; }
   }
 </style>
 </head>
-<body>
+<body class="locking">
+<svg class="defs" style="position:absolute;width:0;height:0" aria-hidden="true">
+  <!-- The panels' Vault Boy tint (MultiEffect colorization): luminance times #2cae2e. -->
+  <filter id="phosphor" color-interpolation-filters="sRGB">
+    <feColorMatrix type="matrix" values="0.0516 0.1013 0.0197 0 0  0.2040 0.4005 0.0778 0 0  0.0539 0.1059 0.0206 0 0  0 0 0 1 0"/>
+  </filter>
+</svg>
 <header class="termlink">OMARCHY (TM) TERMINAL PROTOCOL</header>
 <main class="boot-main">
 
   <section class="stage stage-lock" id="stage-lock">
-    <div class="emblem-wrap">
-      <img class="emblem" src="assets/img/vaulttec.svg" alt="Vault-Tec — Vault Boy thumbs up"
+    <div class="term-text title">OMARCHY (TM) TERMINAL PROTOCOL</div>
+    <div class="emblem-slot">
+      <img class="emblem" src="assets/img/vaulttec.svg" alt="Vault-Tec wings around the Omarchy mark"
            onerror="this.onerror=null;this.src='assets/img/vaulttec-fallback.svg'">
-      <div class="wordmark">
-        <span class="wordmark-name">OMARCHY</span>
-        <span class="wordmark-sub">BEAUTIFUL, FUN &amp; AGENTIC LINUX</span>
-      </div>
+      <span class="reveal-line" aria-hidden="true"></span>
     </div>
-    <div class="field-wrap">
-      <form id="lockform" class="field" autocomplete="off">
+    <div class="banner">
+      <div class="term-text">OMARCHY VERSION 4.0.6 | KERNEL VERSION 7.2.8</div>
+      <div class="term-text">COPYRIGHT 2025 - 2026 OMARCHY</div>
+      <div class="term-text">- OMARCHY -</div>
+    </div>
+    <div class="rule"></div>
+    <form class="passphrase" id="lockform" autocomplete="off">
+      <div class="prompt-row">
+        <span class="term-text prompt-label">&gt; ENTER PASSWORD: </span><span class="term-text stars" id="stars"></span><span class="block" id="block"></span>
         <input id="pw" type="password" aria-label="Password" autofocus>
-        <div class="dots" id="dots" aria-hidden="true"><span class="block" id="block"></span></div>
-      </form>
-      <span class="lock-icon" aria-hidden="true"></span>
-      <div class="status" aria-hidden="true"></div>
-    </div>
+      </div>
+      <div class="term-text status" id="status" aria-live="polite"></div>
+    </form>
   </section>
 
   <section class="stage stage-about" id="stage-about" hidden>
@@ -402,7 +352,8 @@
   var form = document.getElementById("lockform");
   var input = document.getElementById("pw");
   var block = document.getElementById("block");
-  var dotsEl = document.getElementById("dots");
+  var starsEl = document.getElementById("stars");
+  var statusEl = document.getElementById("status");
   var lockStage = document.getElementById("stage-lock");
   var aboutStage = document.getElementById("stage-about");
   var initStage = document.getElementById("stage-init");
@@ -418,39 +369,31 @@
   var dotsTimer = 0;
 
   function updateCursor() {
-    var n = input.value.length;
-    while (dotsEl.firstChild && dotsEl.firstChild !== block) {
-      dotsEl.removeChild(dotsEl.firstChild);
-    }
-    for (var i = 0; i < n; i++) {
-      var dot = document.createElement("span");
-      dot.className = "dot";
-      dotsEl.insertBefore(dot, block);
-    }
-    dotsEl.classList.remove("clamp");
-    if (dotsEl.scrollWidth > dotsEl.clientWidth + 1) dotsEl.classList.add("clamp");
+    starsEl.textContent = new Array(input.value.length + 1).join("*");
   }
 
   function setCursor(on) {
     block.classList.toggle("on", on);
   }
 
-  input.addEventListener("input", updateCursor);
+  input.addEventListener("input", function () {
+    updateCursor();
+    if (input.value) setStatus("", "");
+  });
   input.addEventListener("focus", function () {
     updateCursor();
     setCursor(true);
-    if (form.classList.contains("error")) setState(null);
   });
   input.addEventListener("blur", function () { setCursor(false); });
 
-  function setState(state) {
-    form.classList.remove("error", "ok");
-    if (state === "error") form.classList.add("error");
-    if (state === "ok") form.classList.add("ok");
+  function setStatus(text, tone) {
+    statusEl.textContent = text;
+    statusEl.className = "term-text status" + (tone ? " " + tone : "");
   }
 
   function showStage(name) {
     if (name !== "init") clearInterval(dotsTimer);
+    document.body.classList.toggle("locking", name === "lock");
     lockStage.hidden = name !== "lock";
     aboutStage.hidden = name !== "about";
     initStage.hidden = name !== "init";
@@ -515,25 +458,22 @@
     e.preventDefault();
     var value = input.value.trim().toLowerCase();
     if (!value) return;
-    if (value === "omarchy" || value === "password") {
-      setState("ok");
-      input.blur();
-      setTimeout(function () {
+    input.value = "";
+    updateCursor();
+    setCursor(false);
+    setStatus("> VERIFYING...", "");
+    setTimeout(function () {
+      if (value === "omarchy" || value === "password") {
         runInit(function () {
           revealProfile(function () {
             if (autoNav) window.location.href = "desktop.html";
           });
         });
-      }, 700);
-    } else {
-      setState("error");
-      form.classList.remove("shake");
-      void form.offsetWidth;
-      form.classList.add("shake");
-      input.value = "";
-      updateCursor();
-      input.focus();
-    }
+      } else {
+        setStatus("> ACCESS DENIED", "denied");
+        setCursor(document.activeElement === input);
+      }
+    }, 700);
   });
 
   (function preset() {
@@ -556,7 +496,6 @@
     updateCursor();
     setCursor(document.activeElement === input);
   });
-  window.addEventListener("resize", updateCursor);
 </script>
 </body>
 </html>

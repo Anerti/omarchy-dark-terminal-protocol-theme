@@ -66,8 +66,9 @@ Widgets move between the two with their settings, so switching back and forth is
 
 `tools/build-plymouth` measures every piece from the rendered mockup and writes the
 1080p layout into `vault-tec.script` at `#@LAYOUT@`. Change layout in `boot.html`, not in
-the generated script. The footer (Omarchy version · kernel · hostname, then the
-copyright) is drawn at install time by `render-footer`, not baked in.
+the generated script. The lock stage copies `anerti.lock`'s terminal (keep the two in
+step), and its banner lines (versions, copyright, hostname) and the init stage's footer
+are drawn at install time by `render-footer`, not baked in.
 
 ## How things get installed (and why edits do not show up)
 

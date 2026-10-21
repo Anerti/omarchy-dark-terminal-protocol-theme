@@ -28,7 +28,7 @@ Each status panel (network, Bluetooth, audio, display, power, clock, weather, ag
 
 ### Lock and boot
 
-The lock screen is laid out like a RobCo terminal: OMARCHY (TM) TERMINAL PROTOCOL over the winged mark (drawn in from the top), then a banner (the Omarchy and kernel versions, the copyright and the hostname), all typing itself out, a rule, then a `> ENTER PASSWORD:` prompt that echoes asterisks. The boot screen keeps the winged mark, OMARCHY over BEAUTIFUL, FUN & AGENTIC LINUX, and a terminal-style password field, with the Omarchy version, kernel and hostname in the footer. Once the password checks out, the lock screen shows a PLEASE STAND BY test card, and the boot screen shows Vault Boy over an INITIALIZING SYSTEM progress bar.
+The lock screen is laid out like a RobCo terminal: OMARCHY (TM) TERMINAL PROTOCOL over the winged mark (drawn in from the top), then a banner (the Omarchy and kernel versions, the copyright and the hostname), all typing itself out, a rule, then a `> ENTER PASSWORD:` prompt that echoes asterisks. The boot screen asks for the disk passphrase on the same terminal, typed out the same way. Once the password checks out, the lock screen shows a PLEASE STAND BY test card, and the boot screen shows a phosphor-green Vault Boy over an INITIALIZING SYSTEM progress bar, with the Omarchy version, kernel and hostname in the footer.
 
 ![Dark Terminal Protocol lock screen](preview-unlock.png)
 
@@ -114,6 +114,6 @@ Nothing changes until you confirm the summary. Built-in disables the plugins, wh
 | Shell plugins | `bin/vault-tec-plugins [install\|uninstall] [id...]` | Copies `plugins/` into `~/.config/omarchy/plugins/` and restarts the shell. A plugin is enabled only on its first install. |
 | Cursors | `bin/vault-tec-cursor [install\|uninstall]` | Installs `~/.local/share/icons/VaultTec` and a hook that uses it while this theme is active. |
 | CRT effect | `bin/vault-tec-crt [on\|off\|toggle\|status]` | Scanlines and vignette as a Hyprland screen shader. It also shows in screenshots and recordings. |
-| Boot screen | `bin/vault-tec-plymouth [install\|uninstall\|test]` | Installs the `vault-tec` Plymouth theme (sudo) and rebuilds the initramfs. Its footer shows the Omarchy version, kernel and hostname, and is redrawn whenever the initramfs is rebuilt, including after Omarchy upgrades and kernel installs. Reinstalling only rewrites what changed, and `uninstall` restores the boot screen that was default before. `test` plays it from a text console (Ctrl+Alt+F3); its passphrase is `omarchy`. |
+| Boot screen | `bin/vault-tec-plymouth [install\|uninstall\|test]` | Installs the `vault-tec` Plymouth theme (sudo) and rebuilds the initramfs. Its banner and footer show the Omarchy version, kernel and hostname, and are redrawn whenever the initramfs is rebuilt, including after Omarchy upgrades and kernel installs. Reinstalling only rewrites what changed, and `uninstall` restores the boot screen that was default before. `test` plays it from a text console (Ctrl+Alt+F3); its passphrase is `omarchy`. |
 
 Keybindings stay Omarchy's: **Super + Space** opens the Pip-Boy menu (also the wedge in the bar), **Super + Ctrl + Space** the background switcher.

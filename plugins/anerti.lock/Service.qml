@@ -33,9 +33,12 @@ Item {
   property string failureMessage: ""
   property int failedAttempts: 0
   property string backgroundPath: ""
-  // Footer banner: "OMARCHY 4.0.5  ·  KERNEL 7.2.8  ·  HOSTNAME".
-  property string systemLine: ""
+  // Banner lines: Omarchy version, kernel version and hostname.
+  property string omarchyVersion: ""
+  property string kernelVersion: ""
+  property string hostName: ""
   property int backgroundVersion: 0
+  property int typingSurfaces: 0
   property string lastEvent: "init"
   property string lastEventAt: ""
   property bool strandedLock: false
@@ -117,8 +120,8 @@ Item {
     if (!readlinkProc.running) readlinkProc.running = true
   }
 
-  function refreshSystemLine() {
-    if (!systemLineProc.running) systemLineProc.running = true
+  function refreshSystemInfo() {
+    if (!systemInfoProc.running) systemInfoProc.running = true
   }
 
   function refreshFingerprintStatus() {
@@ -160,7 +163,7 @@ Item {
     Qt.callLater(function() {
       root.refreshBackground()
       root.refreshFingerprintStatus()
-      root.refreshSystemLine()
+      root.refreshSystemInfo()
     })
 
     return true
@@ -319,16 +322,22 @@ Item {
         fingerprintConfigured: root.fingerprintConfigured
         authenticatingPassword: root.authenticatingPassword
         failureMessage: root.failureMessage
-        failedAttempts: root.failedAttempts
         inputEnabled: root.lockRequested && !root.granting
         loadBackground: root.locked
         granting: root.granting
-        systemLine: root.systemLine
+        omarchyVersion: root.omarchyVersion
+        kernelVersion: root.kernelVersion
+        hostName: root.hostName
         passwordText: root.enteredPassword
         onPasswordTextEdited: function(password) { root.enteredPassword = password }
         onSubmitPassword: function(password) { root.submitPassword(password) }
         onClearFailureRequested: root.failureMessage = ""
         onWakeRequested: root.runWake()
+        onTypingChanged: {
+          root.typingSurfaces += typing ? 1 : -1
+          if (!typing && root.lockRequested && !root.granting) root.armBlankTimer()
+        }
+        Component.onDestruction: if (typing) root.typingSurfaces -= 1
       }
 
     }
@@ -351,11 +360,12 @@ Item {
       fingerprintConfigured: root.fingerprintConfigured
       authenticatingPassword: false
       failureMessage: ""
-      failedAttempts: 0
       inputEnabled: false
       loadBackground: root.previewVisible
       granting: root.previewGranting
-      systemLine: root.systemLine
+      omarchyVersion: root.omarchyVersion
+      kernelVersion: root.kernelVersion
+      hostName: root.hostName
       passwordText: ""
     }
 
@@ -434,11 +444,16 @@ Item {
 
   // Version without the package release, kernel without its build suffix.
   Process {
-    id: systemLineProc
-    command: ["bash", "-c", "v=$(omarchy-version 2>/dev/null); k=$(uname -r); h=$(cat /proc/sys/kernel/hostname); parts=(); [[ -n $v ]] && parts+=(\"OMARCHY ${v%-*}\"); parts+=(\"KERNEL ${k%%-*}\" \"$h\"); out=\"${parts[0]}\"; for p in \"${parts[@]:1}\"; do out+=\"  ·  $p\"; done; echo \"${out^^}\""]
+    id: systemInfoProc
+    command: ["bash", "-c", "v=$(omarchy-version 2>/dev/null); k=$(uname -r); printf '%s\\n' \"${v%-*}\" \"${k%%-*}\" \"$(cat /proc/sys/kernel/hostname)\""]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.systemLine = String(text || "").trim()
+      onStreamFinished: {
+        var lines = String(text || "").split("\n")
+        root.omarchyVersion = (lines[0] || "").trim()
+        root.kernelVersion = (lines[1] || "").trim()
+        root.hostName = (lines[2] || "").trim()
+      }
     }
   }
 
@@ -492,10 +507,11 @@ Item {
         root.armBlankTimer()
         return
       }
-      // Only a password check in flight should hold the display up. The
-      // fingerprint PAM stays armed for the whole lock, so gating on
-      // `authenticating` here would keep the panel lit until unlock.
-      if (root.lockRequested && !root.authenticatingPassword && !root.granting) root.runBlank()
+      // Only a password check in flight or the banner typing out (whose end
+      // re-arms this) should hold the display up. The fingerprint PAM stays
+      // armed for the whole lock, so gating on `authenticating` here would
+      // keep the panel lit until unlock.
+      if (root.lockRequested && !root.authenticatingPassword && !root.granting && root.typingSurfaces === 0) root.runBlank()
     }
   }
 
@@ -572,7 +588,7 @@ Item {
   Component.onCompleted: {
     refreshBackground()
     refreshFingerprintStatus()
-    refreshSystemLine()
+    refreshSystemInfo()
     checkStrandedLock()
   }
 
@@ -609,7 +625,7 @@ Item {
     function preview(): string {
       root.refreshBackground()
       root.refreshFingerprintStatus()
-      root.refreshSystemLine()
+      root.refreshSystemInfo()
       root.previewGranting = false
       root.previewVisible = true
       return "ok"

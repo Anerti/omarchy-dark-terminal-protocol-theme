@@ -1,14 +1,14 @@
 import QtQuick
 import QtQuick.Effects
-import QtQuick.Shapes
 import qs.Commons
 
-// The Omarchy terminal lock screen, as in the mockup: the Omarchy mark in
-// Vault-Tec wings, the OMARCHY wordmark, a block-cursor password field with the
-// lock icon to its left, and
-// the PLEASE STAND BY card once the password checks out. Nothing is printed
-// under the field: a wrong password shakes it and turns its border red and
-// dashed, the dashes being the cue that does not rely on colour.
+// The Omarchy terminal lock screen, laid out like a RobCo terminal: OMARCHY (TM)
+// TERMINAL PROTOCOL over the Omarchy mark in Vault-Tec wings, then a centred
+// banner (the Omarchy and kernel versions, the copyright and the hostname), all
+// typing itself out, a rule, then a left-aligned "> ENTER PASSWORD:" prompt echoing an
+// asterisk per character. A status line under the prompt reports the check
+// (ACCESS DENIED in red, the words being the cue that does not rely on colour),
+// and the PLEASE STAND BY card shows once the password checks out.
 Item {
   id: root
 
@@ -17,29 +17,66 @@ Item {
   property bool fingerprintConfigured: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
-  property int failedAttempts: 0
   property bool inputEnabled: true
   property bool loadBackground: true
   property string passwordText: ""
   property bool syncingPasswordText: false
   // Set by the service between a successful check and the unlock.
   property bool granting: false
-  // Version, kernel and hostname from the service; a plain name until it answers.
-  property string systemLine: ""
+  property string omarchyVersion: ""
+  property string kernelVersion: ""
+  property string hostName: ""
 
   readonly property color fg: "#2cae2e"
-  readonly property color fgBright: "#d6ffe3"
+  readonly property color muted: "#7c9480"
   readonly property color urgent: "#ff5a3c"
-  readonly property color lineStrong: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.6)
   readonly property color bgDeep: "#020a05"
   readonly property string textFamily: shareTech.status === FontLoader.Ready ? shareTech.name : Style.font.family
 
   readonly property bool errorState: failureMessage.length > 0
   readonly property bool cursorOn: inputEnabled && !authenticatingPassword && !granting
   readonly property real rem: px(16)
+  readonly property int termSize: Math.round(rem * 1.25)
+  readonly property int promptSize: Math.round(rem * 1.6)
+  readonly property real termTracking: 0.1
+
+  readonly property var bannerLines: {
+    var lines = ["OMARCHY (TM) TERMINAL PROTOCOL"]
+    var versions = []
+    if (omarchyVersion.length > 0) versions.push("OMARCHY VERSION " + omarchyVersion)
+    if (kernelVersion.length > 0) versions.push("KERNEL VERSION " + kernelVersion)
+    if (versions.length > 0) lines.push(versions.join(" | "))
+    lines.push("COPYRIGHT 2025 - " + new Date().getFullYear() + " OMARCHY")
+    if (hostName.length > 0) lines.push("- " + hostName + " -")
+    return lines.map(function(line) { return line.toUpperCase() })
+  }
+  readonly property string promptLabel: "> ENTER PASSWORD: "
+
+  readonly property int typeInterval: 35
+  readonly property int linePause: 6
+  readonly property int logoTicks: 22
+  readonly property int ruleTicks: 10
+  readonly property int logoStart: bannerLines[0].length + linePause
+  readonly property var bannerStarts: {
+    var starts = []
+    var tick = 0
+    for (var i = 0; i < bannerLines.length; i++) {
+      starts.push(tick)
+      tick += bannerLines[i].length + linePause
+      if (i === 0) tick += logoTicks + linePause
+    }
+    starts.push(tick)
+    return starts
+  }
+  readonly property int ruleStart: bannerStarts[bannerLines.length]
+  readonly property int promptStart: ruleStart + ruleTicks + linePause
+  readonly property int typingEnd: promptStart + promptLabel.length
+  readonly property bool promptReady: typed >= typingEnd
+  property int typed: 0
+  property bool typing: false
 
   function px(n) { return Style.space(n) }
-  function green(a) { return Qt.rgba(44 / 255, 174 / 255, 46 / 255, a) }
+  function glowOf(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
 
   signal submitPassword(string password)
   signal passwordTextEdited(string password)
@@ -61,19 +98,64 @@ Item {
     syncingPasswordText = false
   }
 
+  function restartTyping() {
+    typed = 0
+    typing = true
+    typingDelay.restart()
+  }
+
+  function finishTyping() {
+    typingDelay.stop()
+    typer.stop()
+    typed = typingEnd
+    typing = false
+  }
+
   onPasswordTextChanged: syncPasswordText()
   onInputEnabledChanged: {
     if (inputEnabled) Qt.callLater(forcePasswordFocus)
   }
-  onFailedAttemptsChanged: if (failedAttempts > 0) shake.restart()
+  onLoadBackgroundChanged: if (loadBackground) restartTyping()
+  onTypingEndChanged: if (!typing && typed > 0) typed = typingEnd
   Component.onCompleted: {
     syncPasswordText()
+    restartTyping()
     if (inputEnabled) Qt.callLater(forcePasswordFocus)
   }
 
   FontLoader {
     id: shareTech
     source: Qt.resolvedUrl("assets/fonts/ShareTechMono-Regular.ttf")
+  }
+
+  Timer {
+    id: typingDelay
+    interval: 400
+    onTriggered: typer.start()
+  }
+
+  Timer {
+    id: typer
+    interval: root.typeInterval
+    repeat: true
+    onTriggered: {
+      if (root.typed >= root.typingEnd) {
+        stop()
+        root.typing = false
+      } else {
+        root.typed += 1
+      }
+    }
+  }
+
+  Timer {
+    id: blink
+    property bool on: true
+    interval: 500
+    repeat: true
+    running: root.loadBackground && !root.granting
+    onRunningChanged: on = true
+    onTriggered: on = !on
   }
 
   // .lock background: a faint green bloom above centre over a deep radial.
@@ -113,21 +195,20 @@ Item {
     onPositionChanged: root.wakeRequested()
   }
 
-  component Caption: Text {
-    property real tracking: 0
-    readonly property int size: Math.round(root.rem * 0.74)
+  component TermText: Text {
+    id: termText
+    property real tracking: root.termTracking
+    property int size: root.termSize
     color: root.fg
-    opacity: 0.92
     font.family: root.textFamily
     font.pixelSize: size
     font.letterSpacing: size * tracking
     // Qt spaces after the last glyph too; pad the front the same so it centres.
     leftPadding: size * tracking
-    horizontalAlignment: Text.AlignHCenter
-    layer.enabled: true
+    layer.enabled: visible
     layer.effect: MultiEffect {
       shadowEnabled: true
-      shadowColor: root.green(0.35)
+      shadowColor: root.glowOf(termText.color, 0.45)
       shadowBlur: 0.4
       shadowHorizontalOffset: 0
       shadowVerticalOffset: 0
@@ -135,210 +216,231 @@ Item {
     }
   }
 
-  Caption {
-    anchors.top: parent.top
-    anchors.topMargin: root.px(18)
-    anchors.horizontalCenter: parent.horizontalCenter
-    text: "OMARCHY (TM) TERMINAL PROTOCOL"
-    tracking: 0.12
+  component TypedLine: Item {
+    id: typedLine
+    property string text
+    property int shown: text.length
+    property bool cursor: false
+    property color color: root.fg
+    property int size: root.termSize
+
+    implicitWidth: full.implicitWidth
+    implicitHeight: full.implicitHeight
+
+    TermText { id: full; visible: false; text: typedLine.text; size: typedLine.size }
+
+    TermText {
+      id: part
+      text: typedLine.text.substring(0, Math.max(0, typedLine.shown))
+      color: typedLine.color
+      size: typedLine.size
+    }
+
+    Rectangle {
+      x: part.implicitWidth
+      anchors.verticalCenter: parent.verticalCenter
+      width: Math.round(typedLine.size * 0.62)
+      height: typedLine.size
+      color: typedLine.color
+      visible: typedLine.cursor && blink.on
+    }
   }
 
   Column {
-    anchors.centerIn: parent
-    spacing: root.px(20)
+    id: terminal
+    anchors.top: parent.top
+    anchors.topMargin: Math.max(root.px(40), root.height * 0.07)
+    anchors.horizontalCenter: parent.horizontalCenter
+    width: Math.min(root.width - root.px(128), root.px(1100))
+    spacing: root.px(28)
 
-    Column {
+    TypedLine {
       anchors.horizontalCenter: parent.horizontalCenter
-      spacing: root.px(24)
+      text: root.bannerLines[0]
+      shown: root.typed - root.bannerStarts[0]
+      cursor: root.typed < root.logoStart
+    }
+
+    Item {
+      id: emblemSlot
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: Math.min(terminal.width * 0.7, root.px(520))
+      height: logoHeight + 2 * margin
+
+      readonly property real logoHeight: width * 360 / 930.07
+      readonly property real margin: root.px(14)
+      readonly property real glowPad: haze.blurMax
+      readonly property real reveal: Math.max(0, Math.min(1, (root.typed - root.logoStart) / root.logoTicks))
 
       Item {
-        id: emblem
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(root.width * 0.78, root.px(560))
-        height: width * 360 / 930.07
-        opacity: 0.92
-        transformOrigin: Item.Center
+        x: -emblemSlot.glowPad
+        y: emblemSlot.margin - emblemSlot.glowPad
+        width: emblemSlot.width + 2 * emblemSlot.glowPad
+        height: emblemSlot.reveal <= 0 ? 0
+          : emblemSlot.reveal >= 1 ? emblemSlot.logoHeight + 2 * emblemSlot.glowPad
+          : emblemSlot.glowPad + emblemSlot.logoHeight * emblemSlot.reveal
+        clip: emblemSlot.reveal < 1
 
-        Image {
-          id: emblemImage
-          anchors.fill: parent
-          source: Qt.resolvedUrl("assets/vaulttec-omarchy.svg")
-          sourceSize.width: width * 2
-          sourceSize.height: height * 2
-          fillMode: Image.PreserveAspectFit
-          smooth: true
-          visible: false
-        }
+        Item {
+          id: emblem
+          x: emblemSlot.glowPad
+          y: emblemSlot.glowPad
+          width: emblemSlot.width
+          height: emblemSlot.logoHeight
+          opacity: 0.92
+          transformOrigin: Item.Center
 
-        // The mockup's three stacked drop-shadows: wide haze, then a tight glow.
-        MultiEffect {
-          anchors.fill: emblemImage
-          source: emblemImage
-          shadowEnabled: true
-          shadowColor: root.green(0.4)
-          shadowBlur: 1.0
-          blurMax: 64
-          shadowHorizontalOffset: 0
-          shadowVerticalOffset: 0
-          autoPaddingEnabled: true
-        }
-
-        MultiEffect {
-          anchors.fill: emblemImage
-          source: emblemImage
-          shadowEnabled: true
-          shadowColor: root.green(0.6)
-          shadowBlur: 0.35
-          blurMax: 16
-          shadowHorizontalOffset: 0
-          shadowVerticalOffset: 0
-          autoPaddingEnabled: true
-        }
-
-        // @keyframes holo
-        SequentialAnimation {
-          running: root.loadBackground && root.visible && !root.granting
-          loops: Animation.Infinite
-          ParallelAnimation {
-            NumberAnimation { target: emblem; property: "opacity"; to: 1; duration: 2250; easing.type: Easing.InOutSine }
-            NumberAnimation { target: emblem; property: "scale"; to: 1.012; duration: 2250; easing.type: Easing.InOutSine }
+          Image {
+            id: emblemImage
+            anchors.fill: parent
+            source: Qt.resolvedUrl("assets/vaulttec-omarchy.svg")
+            sourceSize.width: width * 2
+            sourceSize.height: height * 2
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            visible: false
           }
-          ParallelAnimation {
-            NumberAnimation { target: emblem; property: "opacity"; to: 0.92; duration: 2250; easing.type: Easing.InOutSine }
-            NumberAnimation { target: emblem; property: "scale"; to: 1; duration: 2250; easing.type: Easing.InOutSine }
+
+          // The mockup's three stacked drop-shadows: wide haze, then a tight glow.
+          MultiEffect {
+            id: haze
+            anchors.fill: emblemImage
+            source: emblemImage
+            shadowEnabled: true
+            shadowColor: root.glowOf(root.fg, 0.4)
+            shadowBlur: 1.0
+            blurMax: 64
+            shadowHorizontalOffset: 0
+            shadowVerticalOffset: 0
+            autoPaddingEnabled: true
+          }
+
+          MultiEffect {
+            anchors.fill: emblemImage
+            source: emblemImage
+            shadowEnabled: true
+            shadowColor: root.glowOf(root.fg, 0.6)
+            shadowBlur: 0.35
+            blurMax: 16
+            shadowHorizontalOffset: 0
+            shadowVerticalOffset: 0
+            autoPaddingEnabled: true
+          }
+
+          // @keyframes holo
+          SequentialAnimation {
+            running: root.loadBackground && root.visible && !root.granting
+            loops: Animation.Infinite
+            ParallelAnimation {
+              NumberAnimation { target: emblem; property: "opacity"; to: 1; duration: 2250; easing.type: Easing.InOutSine }
+              NumberAnimation { target: emblem; property: "scale"; to: 1.012; duration: 2250; easing.type: Easing.InOutSine }
+            }
+            ParallelAnimation {
+              NumberAnimation { target: emblem; property: "opacity"; to: 0.92; duration: 2250; easing.type: Easing.InOutSine }
+              NumberAnimation { target: emblem; property: "scale"; to: 1; duration: 2250; easing.type: Easing.InOutSine }
+            }
           }
         }
       }
 
-      Column {
-        anchors.horizontalCenter: parent.horizontalCenter
-        spacing: root.px(2)
-        opacity: 0.92
-
-        Text {
-          anchors.horizontalCenter: parent.horizontalCenter
-          readonly property int size: Math.round(root.rem * 1.5)
-          text: "OMARCHY"
-          color: root.fg
-          font.family: root.textFamily
-          font.pixelSize: size
-          font.letterSpacing: size * 0.42
-          leftPadding: size * 0.42
-          lineHeight: 1.1
+      Rectangle {
+        y: emblemSlot.margin + emblemSlot.logoHeight * emblemSlot.reveal
+        width: emblemSlot.width
+        height: root.px(2)
+        color: root.fg
+        visible: emblemSlot.reveal > 0 && emblemSlot.reveal < 1
+        layer.enabled: visible
+        layer.effect: MultiEffect {
+          shadowEnabled: true
+          shadowColor: root.glowOf(root.fg, 0.8)
+          shadowBlur: 0.5
+          shadowHorizontalOffset: 0
+          shadowVerticalOffset: 0
+          autoPaddingEnabled: true
         }
+      }
+    }
 
-        Text {
+    Column {
+      anchors.horizontalCenter: parent.horizontalCenter
+      spacing: root.px(4)
+
+      Repeater {
+        model: root.bannerLines.slice(1)
+
+        TypedLine {
+          required property string modelData
+          required property int index
           anchors.horizontalCenter: parent.horizontalCenter
-          readonly property int size: Math.round(root.rem * 0.8)
-          text: "BEAUTIFUL, FUN & AGENTIC LINUX"
-          color: root.fg
-          font.family: root.textFamily
-          font.pixelSize: size
-          font.letterSpacing: size * 0.52
-          leftPadding: size * 0.52
-          lineHeight: 1.4
+          text: modelData
+          shown: root.typed - root.bannerStarts[index + 1]
+          cursor: root.typed >= root.bannerStarts[index + 1] && root.typed < root.bannerStarts[index + 2]
         }
       }
     }
 
     Item {
-      id: fieldWrap
-      anchors.horizontalCenter: parent.horizontalCenter
-      width: Math.min(root.px(381), root.width * 0.82)
-      height: root.px(67)
-      transform: Translate { id: shakeShift }
+      width: terminal.width
+      height: root.px(2)
 
-      SequentialAnimation {
-        id: shake
-        NumberAnimation { target: shakeShift; property: "x"; to: -root.px(8); duration: 80 }
-        NumberAnimation { target: shakeShift; property: "x"; to: root.px(8); duration: 80 }
-        NumberAnimation { target: shakeShift; property: "x"; to: -root.px(5); duration: 80 }
-        NumberAnimation { target: shakeShift; property: "x"; to: root.px(5); duration: 80 }
-        NumberAnimation { target: shakeShift; property: "x"; to: 0; duration: 80 }
-      }
-
-      readonly property color borderColor: root.errorState ? root.urgent : (root.granting ? root.fg : root.lineStrong)
-      readonly property color glowColor: root.errorState ? Qt.rgba(1, 90 / 255, 60 / 255, 0.45)
-        : root.green(root.granting ? 0.5 : (passwordInput.activeFocus ? 0.4 : 0.18))
-
-      // Lock icon, 14px left of the field.
-      Item {
-        anchors.right: parent.left
-        anchors.rightMargin: root.px(14)
-        anchors.verticalCenter: parent.verticalCenter
-        width: root.px(23)
-        height: root.px(26)
-
-        Image {
-          id: lockImage
-          anchors.fill: parent
-          source: Qt.resolvedUrl("assets/lock.png")
-          sourceSize.width: width * 2
-          sourceSize.height: height * 2
-          fillMode: Image.PreserveAspectFit
-          visible: false
-        }
-
-        MultiEffect {
-          anchors.fill: lockImage
-          source: lockImage
-          colorization: 1.0
-          colorizationColor: root.fg
-          brightness: 0.12
+      Rectangle {
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: parent.width * Math.max(0, Math.min(1, (root.typed - root.ruleStart) / root.ruleTicks))
+        height: parent.height
+        color: root.fg
+        layer.enabled: width > 0
+        layer.effect: MultiEffect {
           shadowEnabled: true
-          shadowColor: root.green(0.75)
+          shadowColor: root.glowOf(root.fg, 0.6)
           shadowBlur: 0.4
           shadowHorizontalOffset: 0
           shadowVerticalOffset: 0
           autoPaddingEnabled: true
         }
       }
+    }
 
-      RectangularShadow {
-        anchors.fill: field
-        radius: field.radius
-        blur: root.px(22)
-        color: fieldWrap.glowColor
-        Behavior on color { ColorAnimation { duration: 150 } }
-      }
+    Column {
+      width: terminal.width
+      spacing: root.px(14)
 
-      Rectangle {
-        id: field
-        anchors.fill: parent
-        radius: root.px(4)
-        color: Qt.rgba(4 / 255, 18 / 255, 10 / 255, 0.72)
+      Item {
+        id: promptRow
+        width: parent.width
+        height: promptLine.implicitHeight
 
-        // inset 0 0 26px rgba(0,0,0,0.7)
-        Rectangle {
-          anchors.fill: parent
-          anchors.margins: root.px(3)
-          radius: field.radius
-          gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.35) }
-            GradientStop { position: 0.35; color: Qt.rgba(0, 0, 0, 0) }
-            GradientStop { position: 0.65; color: Qt.rgba(0, 0, 0, 0) }
-            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.35) }
-          }
+        TypedLine {
+          id: promptLine
+          text: root.promptLabel
+          size: root.promptSize
+          shown: root.typed - root.promptStart
+          cursor: root.typed >= root.promptStart && !root.promptReady
         }
 
-        Shape {
-          anchors.fill: parent
-          preferredRendererType: Shape.CurveRenderer
+        Item {
+          id: starsBox
+          anchors.left: promptLine.right
+          anchors.right: parent.right
+          height: parent.height
+          clip: true
+          visible: root.promptReady
 
-          ShapePath {
-            strokeWidth: root.px(3)
-            strokeColor: fieldWrap.borderColor
-            strokeStyle: root.errorState ? ShapePath.DashLine : ShapePath.SolidLine
-            dashPattern: [3, 2]
-            fillColor: "transparent"
-            joinStyle: ShapePath.MiterJoin
+          Row {
+            id: stars
+            x: width > starsBox.width ? starsBox.width - width : 0
 
-            PathRectangle {
-              x: root.px(1.5)
-              y: root.px(1.5)
-              width: field.width - root.px(3)
-              height: field.height - root.px(3)
-              radius: field.radius
+            TermText {
+              text: "*".repeat(passwordInput.text.length)
+              size: root.promptSize
+              leftPadding: 0
+            }
+
+            Rectangle {
+              anchors.verticalCenter: parent.verticalCenter
+              width: Math.round(root.promptSize * 0.62)
+              height: root.promptSize
+              color: root.fg
+              opacity: root.cursorOn && passwordInput.activeFocus && blink.on ? 1 : 0
             }
           }
         }
@@ -346,7 +448,7 @@ Item {
         TextInput {
           id: passwordInput
           anchors.fill: parent
-          // Typed blind: the dots below are the only echo.
+          // Typed blind: the asterisks are the only echo.
           opacity: 0
           activeFocusOnPress: true
           enabled: root.inputEnabled && !root.authenticatingPassword
@@ -360,6 +462,7 @@ Item {
             if (!root.syncingPasswordText) root.passwordTextEdited(text)
             if (text.length > 0) {
               root.wakeRequested()
+              root.finishTyping()
             }
             if (text.length > 0 && root.failureMessage.length > 0) root.clearFailureRequested()
           }
@@ -372,105 +475,42 @@ Item {
 
           Keys.onPressed: function(event) {
             root.wakeRequested()
+            root.finishTyping()
             if (event.key === Qt.Key_Escape || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_U)) {
               root.passwordTextEdited("")
               event.accepted = true
             }
           }
         }
+      }
 
-        // .dots: one glowing dot per character and the blinking block cursor.
-        // Centred while they fit, then held to the right edge so the newest
-        // keystroke stays in view.
-        Item {
-          id: dotsBox
-          anchors.fill: parent
-          anchors.leftMargin: root.px(18)
-          anchors.rightMargin: root.px(18) + (root.fingerprintConfigured ? fingerprintIcon.width + root.px(10) : 0)
-          clip: true
+      TypedLine {
+        id: statusLine
+        readonly property string message: root.authenticatingPassword ? "> VERIFYING..."
+          : root.errorState ? "> ACCESS DENIED"
+          : root.fingerprintConfigured ? "> OR PLACE A FINGER ON THE SCANNER" : ""
+        text: message
+        color: root.errorState ? root.urgent : (root.authenticatingPassword ? root.fg : root.muted)
+        visible: root.promptReady
+        shown: 0
+        onMessageChanged: Qt.callLater(retype)
+        onVisibleChanged: Qt.callLater(retype)
 
-          readonly property real unit: Math.round(root.rem * 1.5 * 0.62)
-
-          Row {
-            id: dots
-            anchors.verticalCenter: parent.verticalCenter
-            x: width > dotsBox.width ? dotsBox.width - width : (dotsBox.width - width) / 2
-            spacing: root.px(6)
-            layer.enabled: true
-            layer.effect: MultiEffect {
-              shadowEnabled: true
-              shadowColor: root.green(0.7)
-              shadowBlur: 0.45
-              shadowHorizontalOffset: 0
-              shadowVerticalOffset: 0
-              autoPaddingEnabled: true
-            }
-
-            Repeater {
-              model: passwordInput.text.length
-              delegate: Rectangle {
-                anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-                width: dotsBox.unit
-                height: dotsBox.unit
-                radius: width / 2
-                color: root.fgBright
-              }
-            }
-
-            Rectangle {
-              id: block
-              anchors.verticalCenter: parent.verticalCenter
-              width: dotsBox.unit
-              height: Math.round(root.rem * 1.5)
-              color: root.fg
-              opacity: root.cursorOn && passwordInput.activeFocus && blink.on ? 1 : 0
-
-              Timer {
-                id: blink
-                property bool on: true
-                interval: 500
-                repeat: true
-                running: root.cursorOn && root.visible
-                onRunningChanged: on = true
-                onTriggered: on = !on
-              }
-            }
-          }
+        function retype() {
+          statusTyper.stop()
+          shown = 0
+          if (visible) statusTyper.start()
         }
 
-        Text {
-          id: fingerprintIcon
-          anchors.right: parent.right
-          anchors.rightMargin: root.px(18)
-          anchors.verticalCenter: parent.verticalCenter
-          visible: root.fingerprintConfigured
-          text: "󰈷"
-          color: root.fg
-          opacity: 0.7
-          font.family: Style.font.family
-          font.pixelSize: Math.round(root.rem * 1.2)
+        NumberAnimation {
+          id: statusTyper
+          target: statusLine
+          property: "shown"
+          from: 0
+          to: statusLine.message.length
+          duration: statusLine.message.length * root.typeInterval
         }
       }
-    }
-  }
-
-  Column {
-    anchors.bottom: parent.bottom
-    anchors.bottomMargin: root.px(18)
-    anchors.horizontalCenter: parent.horizontalCenter
-
-    Caption {
-      anchors.horizontalCenter: parent.horizontalCenter
-      text: root.systemLine.length > 0 ? root.systemLine : "OMARCHY UNIFIED OPERATING SYSTEM"
-      tracking: 0.24
-      lineHeight: 1.8
-    }
-
-    Caption {
-      anchors.horizontalCenter: parent.horizontalCenter
-      text: "COPYRIGHT 2025 - " + new Date().getFullYear() + " OMARCHY"
-      tracking: 0.24
-      lineHeight: 1.8
     }
   }
 

@@ -462,6 +462,7 @@ cursor.sprite = Sprite();
 block.sprite = Sprite();
 label.sprite = Sprite();
 label.text = "";
+label.y = 0;
 answer.sprite = Sprite();
 
 # The terminal's left edge and the stars' place after "> ENTER PASSWORD: ".
@@ -493,8 +494,9 @@ line.file[6] = "denied.png"; line.x[6] = layout.denied.x; line.y[6] = layout.den
 line.chars[6] = layout.denied_chars; line.left[6] = term.left;
 line.left[0] = 960 - (PAD + line.chars[0] * line.step[0]) / 2;
 line.cy[0] = layout.title.y + layout.title.h / 2;
-# A line's ink and glow across, less its characters: how render-footer's lines are measured.
-GLOW = layout.title.w - line.chars[0] * layout.term_step;
+# render-footer centres each banner line in CELL px a character plus MARGIN across.
+BANNER_CELL = 13;
+BANNER_MARGIN = 48;
 
 # Enough stars to fill the row; the newest ones show once it overflows.
 STARS = 48;
@@ -518,21 +520,20 @@ fun setup_lock() {
   star.image = load("star.png");
   for (slot = 0; slot < STARS; slot++) star.sprite[slot].SetImage(star.image);
 
+  for (i = 0; i < 7; i++) {
+    line.image[i] = load(line.file[i]);
+    line.shown[i] = -1;
+  }
   # The banner lines are centred, so their text boxes follow from their widths.
   for (i = 1; i <= 3; i++) {
-    image = Image(line.file[i]);
-    w = image.GetWidth();
-    h = image.GetHeight();
+    w = line.image[i].GetWidth() / global.s;
+    h = line.image[i].GetHeight() / global.s;
     line.chars[i] = 0;
-    if (w > 1) line.chars[i] = Math.Int((w - GLOW) / layout.term_step + 0.5);
+    if (w > BANNER_MARGIN) line.chars[i] = Math.Int((w - BANNER_MARGIN) / BANNER_CELL + 0.5);
     line.x[i] = 960 - w / 2;
     line.cy[i] = layout.banner_line.y + layout.banner_line.h / 2 + (i - 1) * layout.banner_pitch;
     line.y[i] = line.cy[i] - h / 2;
     line.left[i] = 960 - (PAD + line.chars[i] * layout.term_step) / 2;
-  }
-  for (i = 0; i < 7; i++) {
-    line.image[i] = load(line.file[i]);
-    line.shown[i] = -1;
   }
   emblem.cut = -1;
   rule.cut = -1;
@@ -557,11 +558,10 @@ fun plan() {
 }
 
 # Characters typed so far; a key press shows everything at once, as on the lock screen.
-global.typing_tick = 0;
 global.skip = 0;
 fun typed() {
   if (global.skip) return 100000;
-  ms = (global.tick - global.typing_tick) * 1000 / TICKS - 400;
+  ms = global.tick * 1000 / TICKS - 400;
   if (ms < 0) return -1;
   return Math.Int(ms / TYPE_MS);
 }
@@ -573,8 +573,7 @@ fun set_label(text) {
     return;
   }
   label.sprite.SetImage(text_image(text, 0.486, 0.580, 0.502));
-  label.sprite.SetPosition(px(term.left + PAD),
-                           py(layout.verify.y + layout.verify.h / 2) - label.sprite.GetImage().GetHeight() / 2, 20);
+  label.y = py(layout.verify.y + layout.verify.h / 2) - label.sprite.GetImage().GetHeight() / 2;
 }
 
 # Line i with its first n characters, cropped at the next one's text box.
@@ -605,6 +604,7 @@ fun draw_line(i, n, visible) {
 fun draw_cursor(i, n) {
   if (i == 4) image = cursor.image;
   else image = cursor.small;
+  if (n > line.chars[i]) n = line.chars[i];
   x = line.left[i] + line.pad[i] + n * line.step[i];
   cursor.sprite.SetImage(image);
   cursor.sprite.SetPosition(px(x), py(line.cy[i]) - image.GetHeight() / 2, 21);
@@ -703,7 +703,6 @@ fun draw_terminal() {
   if (prompt && !ready && p >= 0) {
     typing = 4;
     n = p;
-    if (n < 0) n = 0;
   }
   if (typing >= 0) draw_cursor(typing, n);
   else cursor.sprite.SetOpacity(0);
@@ -731,7 +730,11 @@ fun draw_terminal() {
   n = Math.Int((global.tick - global.status_tick) * 1000 / TICKS / TYPE_MS);
   draw_line(5, n, ready && global.state == "checking");
   draw_line(6, n, ready && global.state == "error");
-  label.sprite.SetOpacity(flag(ready && label.text != "" && global.state == "focus"));
+  x = term.left + PAD;
+  if (global.state == "error") x += (line.chars[6] + 2) * line.step[6];
+  label.sprite.SetPosition(px(x), label.y, 20);
+  denied = global.state == "error" && n >= line.chars[6];
+  label.sprite.SetOpacity(flag(ready && label.text != "" && (global.state == "focus" || denied)));
 }
 
 #----------------------------------------- Init stage --------------------------------
@@ -889,7 +892,8 @@ fun refresh_callback() {
     # callback within seconds; this is only the fallback, long enough that a refused
     # passphrase (every keyslot tried, slow on slow hardware) re-prompts first.
     if (global.state == "checking" && global.tick - global.check_tick >= 20 * TICKS) granted();
-  } else if (global.stage == "idle" && Plymouth.GetMode() == "boot" && global.tick >= 6 * TICKS && !global.prompted) {
+  } else if (global.stage == "idle" && Plymouth.GetMode() == "boot" && global.tick >= 6 * TICKS &&
+             typed() >= global.prompt_start && !global.prompted) {
     # Nothing to unlock: go straight to initializing.
     show_stage("init");
   }
@@ -901,7 +905,10 @@ Plymouth.SetRefreshFunction(refresh_callback);
 
 # Accepted: on to initializing.
 fun granted() {
-  if (global.stage == "lock" && global.state == "checking") show_stage("init");
+  if (global.stage == "lock" && global.state == "checking") {
+    set_state("focus");
+    show_stage("init");
+  }
 }
 
 fun note_prompt(prompt) {

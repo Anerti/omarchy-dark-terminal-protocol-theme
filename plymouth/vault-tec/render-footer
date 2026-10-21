@@ -74,14 +74,16 @@ magick "$tmp/text.png" \
   PNG32:"$tmp/footer.png"
 
 # The lock screen's TermText: 20px, .1em tracking, an 8px glow at .45. Each line is
-# trimmed to its ink and glow across, and keeps a fixed height centred on its line box.
+# centred in 13px a character plus 48 across, which the script reads its length back
+# from, and keeps a fixed height centred on its line box.
 for i in 1 2 3; do
   if ((i <= ${#banner[@]})); then
     magick -background none -fill "#2cae2e" -font "$font" -pointsize 20 -kerning 2 \
       label:"${banner[i - 1]}" -gravity center -extent "%[fx:w+48]x56" \
       \( +clone -channel A -blur 0x4 -evaluate multiply 0.45 +channel \) \
       -swap 0,1 -compose over -composite \
-      -define trim:edges=east,west -trim +repage PNG32:"$tmp/banner-$i.png"
+      -define trim:edges=east,west -trim +repage \
+      -extent "$((${#banner[i - 1]} * 13 + 48))x56" PNG32:"$tmp/banner-$i.png"
   else
     magick -size 1x1 xc:none PNG32:"$tmp/banner-$i.png"
   fi

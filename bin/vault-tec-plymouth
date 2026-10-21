@@ -67,6 +67,15 @@ install() {
   check_build
   local changed=0 live file
 
+  # The banner and footer are baked into each initramfs by the hook, so new ones need a
+  # rebuild too.
+  live=$(mktemp -d)
+  if ! "$ROOT/plymouth/vault-tec/render-footer" "$live"; then
+    rm -rf "$live"
+    echo "render-footer could not draw this system's banner and footer (needs magick)" >&2
+    exit 1
+  fi
+
   if ! diff -rq -x footer.png -x 'banner-*.png' "$ROOT/plymouth/vault-tec" "$THEME" >/dev/null 2>&1; then
     sudo install -d -m 0755 "$THEME"
     sudo rsync -a --delete --exclude=footer.png --exclude='banner-*.png' --chown=root:root --chmod=D755,F644 \
@@ -75,12 +84,6 @@ install() {
     changed=1
   fi
 
-  # The banner and footer are baked into each initramfs by the hook, so new ones need a
-  # rebuild too.
-  live=$(mktemp -d)
-  if ! "$ROOT/plymouth/vault-tec/render-footer" "$live"; then
-    for file in $LIVE; do cp "$ROOT/plymouth/vault-tec/$file" "$live/"; done
-  fi
   for file in $LIVE; do
     put 0644 "$THEME/$file" <"$live/$file" && changed=1
   done

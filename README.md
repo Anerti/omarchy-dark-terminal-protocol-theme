@@ -28,7 +28,7 @@ Each status panel (network, Bluetooth, audio, display, power, clock, weather, ag
 
 ### Lock and boot
 
-The lock screen and the boot screen look the same: the winged mark, OMARCHY over BEAUTIFUL, FUN & AGENTIC LINUX, and a terminal-style password field. The footer shows the Omarchy version, kernel and hostname. Once the password checks out, the lock screen shows a PLEASE STAND BY test card, and the boot screen shows Vault Boy over an INITIALIZING SYSTEM progress bar.
+The lock screen is laid out like a RobCo terminal: OMARCHY (TM) TERMINAL PROTOCOL over the winged mark (drawn in from the top), then a banner (the Omarchy and kernel versions, the copyright and the hostname), all typing itself out, a rule, then a `> ENTER PASSWORD:` prompt that echoes asterisks. The boot screen keeps the winged mark, OMARCHY over BEAUTIFUL, FUN & AGENTIC LINUX, and a terminal-style password field, with the Omarchy version, kernel and hostname in the footer. Once the password checks out, the lock screen shows a PLEASE STAND BY test card, and the boot screen shows Vault Boy over an INITIALIZING SYSTEM progress bar.
 
 ![Dark Terminal Protocol lock screen](preview-unlock.png)
 

@@ -38,6 +38,7 @@ Item {
   property string kernelVersion: ""
   property string hostName: ""
   property int backgroundVersion: 0
+  property int typingSurfaces: 0
   property string lastEvent: "init"
   property string lastEventAt: ""
   property bool strandedLock: false
@@ -321,7 +322,6 @@ Item {
         fingerprintConfigured: root.fingerprintConfigured
         authenticatingPassword: root.authenticatingPassword
         failureMessage: root.failureMessage
-        failedAttempts: root.failedAttempts
         inputEnabled: root.lockRequested && !root.granting
         loadBackground: root.locked
         granting: root.granting
@@ -333,6 +333,11 @@ Item {
         onSubmitPassword: function(password) { root.submitPassword(password) }
         onClearFailureRequested: root.failureMessage = ""
         onWakeRequested: root.runWake()
+        onTypingChanged: {
+          root.typingSurfaces += typing ? 1 : -1
+          if (!typing && root.lockRequested && !root.granting) root.armBlankTimer()
+        }
+        Component.onDestruction: if (typing) root.typingSurfaces -= 1
       }
 
     }
@@ -355,7 +360,6 @@ Item {
       fingerprintConfigured: root.fingerprintConfigured
       authenticatingPassword: false
       failureMessage: ""
-      failedAttempts: 0
       inputEnabled: false
       loadBackground: root.previewVisible
       granting: root.previewGranting
@@ -503,10 +507,11 @@ Item {
         root.armBlankTimer()
         return
       }
-      // Only a password check in flight should hold the display up. The
-      // fingerprint PAM stays armed for the whole lock, so gating on
-      // `authenticating` here would keep the panel lit until unlock.
-      if (root.lockRequested && !root.authenticatingPassword && !root.granting) root.runBlank()
+      // Only a password check in flight or the banner typing out (whose end
+      // re-arms this) should hold the display up. The fingerprint PAM stays
+      // armed for the whole lock, so gating on `authenticating` here would
+      // keep the panel lit until unlock.
+      if (root.lockRequested && !root.authenticatingPassword && !root.granting && root.typingSurfaces === 0) root.runBlank()
     }
   }
 

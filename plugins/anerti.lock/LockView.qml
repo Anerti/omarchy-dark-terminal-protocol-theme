@@ -17,7 +17,6 @@ Item {
   property bool fingerprintConfigured: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
-  property int failedAttempts: 0
   property bool inputEnabled: true
   property bool loadBackground: true
   property string passwordText: ""
@@ -47,7 +46,7 @@ Item {
     if (omarchyVersion.length > 0) versions.push("OMARCHY VERSION " + omarchyVersion)
     if (kernelVersion.length > 0) versions.push("KERNEL VERSION " + kernelVersion)
     if (versions.length > 0) lines.push(versions.join(" | "))
-    lines.push("COPYRIGHT 2025-" + new Date().getFullYear() + " OMARCHY")
+    lines.push("COPYRIGHT 2025 - " + new Date().getFullYear() + " OMARCHY")
     if (hostName.length > 0) lines.push("- " + hostName + " -")
     return lines.map(function(line) { return line.toUpperCase() })
   }
@@ -74,9 +73,9 @@ Item {
   readonly property int typingEnd: promptStart + promptLabel.length
   readonly property bool promptReady: typed >= typingEnd
   property int typed: 0
+  property bool typing: false
 
   function px(n) { return Style.space(n) }
-  function green(a) { return Qt.rgba(44 / 255, 174 / 255, 46 / 255, a) }
   function glowOf(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
 
   signal submitPassword(string password)
@@ -101,12 +100,15 @@ Item {
 
   function restartTyping() {
     typed = 0
+    typing = true
     typingDelay.restart()
   }
 
   function finishTyping() {
     typingDelay.stop()
+    typer.stop()
     typed = typingEnd
+    typing = false
   }
 
   onPasswordTextChanged: syncPasswordText()
@@ -114,6 +116,7 @@ Item {
     if (inputEnabled) Qt.callLater(forcePasswordFocus)
   }
   onLoadBackgroundChanged: if (loadBackground) restartTyping()
+  onTypingEndChanged: if (!typing && typed > 0) typed = typingEnd
   Component.onCompleted: {
     syncPasswordText()
     restartTyping()
@@ -128,10 +131,7 @@ Item {
   Timer {
     id: typingDelay
     interval: 400
-    onTriggered: {
-      root.wakeRequested()
-      typer.start()
-    }
+    onTriggered: typer.start()
   }
 
   Timer {
@@ -141,10 +141,9 @@ Item {
     onTriggered: {
       if (root.typed >= root.typingEnd) {
         stop()
-        root.wakeRequested()
+        root.typing = false
       } else {
         root.typed += 1
-        if (root.typed % 100 === 0) root.wakeRequested()
       }
     }
   }
@@ -270,7 +269,7 @@ Item {
 
       readonly property real logoHeight: width * 360 / 930.07
       readonly property real margin: root.px(14)
-      readonly property real glowPad: root.px(48)
+      readonly property real glowPad: haze.blurMax
       readonly property real reveal: Math.max(0, Math.min(1, (root.typed - root.logoStart) / root.logoTicks))
 
       Item {
@@ -280,7 +279,7 @@ Item {
         height: emblemSlot.reveal <= 0 ? 0
           : emblemSlot.reveal >= 1 ? emblemSlot.logoHeight + 2 * emblemSlot.glowPad
           : emblemSlot.glowPad + emblemSlot.logoHeight * emblemSlot.reveal
-        clip: true
+        clip: emblemSlot.reveal < 1
 
         Item {
           id: emblem
@@ -304,10 +303,11 @@ Item {
 
           // The mockup's three stacked drop-shadows: wide haze, then a tight glow.
           MultiEffect {
+            id: haze
             anchors.fill: emblemImage
             source: emblemImage
             shadowEnabled: true
-            shadowColor: root.green(0.4)
+            shadowColor: root.glowOf(root.fg, 0.4)
             shadowBlur: 1.0
             blurMax: 64
             shadowHorizontalOffset: 0
@@ -319,7 +319,7 @@ Item {
             anchors.fill: emblemImage
             source: emblemImage
             shadowEnabled: true
-            shadowColor: root.green(0.6)
+            shadowColor: root.glowOf(root.fg, 0.6)
             shadowBlur: 0.35
             blurMax: 16
             shadowHorizontalOffset: 0
@@ -352,7 +352,7 @@ Item {
         layer.enabled: visible
         layer.effect: MultiEffect {
           shadowEnabled: true
-          shadowColor: root.green(0.8)
+          shadowColor: root.glowOf(root.fg, 0.8)
           shadowBlur: 0.5
           shadowHorizontalOffset: 0
           shadowVerticalOffset: 0
@@ -388,10 +388,10 @@ Item {
         width: parent.width * Math.max(0, Math.min(1, (root.typed - root.ruleStart) / root.ruleTicks))
         height: parent.height
         color: root.fg
-        layer.enabled: true
+        layer.enabled: width > 0
         layer.effect: MultiEffect {
           shadowEnabled: true
-          shadowColor: root.green(0.6)
+          shadowColor: root.glowOf(root.fg, 0.6)
           shadowBlur: 0.4
           shadowHorizontalOffset: 0
           shadowVerticalOffset: 0
@@ -493,13 +493,22 @@ Item {
         color: root.errorState ? root.urgent : (root.authenticatingPassword ? root.fg : root.muted)
         visible: root.promptReady
         shown: 0
-        onMessageChanged: shown = 0
+        onMessageChanged: Qt.callLater(retype)
+        onVisibleChanged: Qt.callLater(retype)
 
-        Timer {
-          interval: root.typeInterval
-          repeat: true
-          running: root.promptReady && statusLine.shown < statusLine.text.length
-          onTriggered: statusLine.shown += 1
+        function retype() {
+          statusTyper.stop()
+          shown = 0
+          if (visible) statusTyper.start()
+        }
+
+        NumberAnimation {
+          id: statusTyper
+          target: statusLine
+          property: "shown"
+          from: 0
+          to: statusLine.message.length
+          duration: statusLine.message.length * root.typeInterval
         }
       }
     }

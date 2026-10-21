@@ -4,9 +4,9 @@
 # tools/build-plymouth from boot.html, shown from power-on to the LUKS passphrase and
 # on until the session starts. Asks for sudo, then rebuilds the initramfs.
 #
-# Its footer names the Omarchy version, the kernel and the hostname. An initcpio hook
-# redraws it into every initramfs for the kernel that initramfs boots, and a pacman hook
-# rebuilds the initramfs when Omarchy itself is upgraded, so both stay current.
+# Its banner and footer name the Omarchy version, the kernel and the hostname. An initcpio
+# hook redraws them into every initramfs for the kernel that initramfs boots, and a pacman
+# hook rebuilds the initramfs when Omarchy itself is upgraded, so both stay current.
 #
 # test plays it on the console you run it from (Ctrl+Alt+F3, log in; not inside the
 # desktop, which holds the screen): passphrase "omarchy", anything else is refused.
@@ -21,6 +21,8 @@ INITCPIO_HOOK=/etc/initcpio/install/vault-tec-plymouth
 INITCPIO_CONF=/etc/mkinitcpio.conf.d/zz-vault-tec-plymouth.conf
 PACMAN_HOOK=/etc/pacman.d/hooks/vault-tec-plymouth.hook
 PREVIOUS=/var/lib/vault-tec-plymouth/previous-theme
+# Drawn by render-footer for each initramfs, so never compared with the build.
+LIVE="footer.png banner-1.png banner-2.png banner-3.png"
 
 rebuild() {
   if command -v limine-mkinitcpio >/dev/null; then
@@ -38,7 +40,7 @@ check_build() {
     echo "plymouth/vault-tec is missing or incomplete: run tools/build-plymouth first" >&2
     exit 1
   fi
-  for file in vault-tec.plymouth render-footer footer.png \
+  for file in vault-tec.plymouth render-footer $LIVE \
     $(grep -o '"[A-Za-z0-9_-]*\.png"' "$dir/vault-tec.script" | tr -d '"' | sort -u); do
     [[ -s $dir/$file ]] || missing+=("$file")
   done
@@ -63,45 +65,55 @@ put() {
 
 install() {
   check_build
-  local changed=0 footer
+  local changed=0 live file
 
-  if ! diff -rq -x footer.png "$ROOT/plymouth/vault-tec" "$THEME" >/dev/null 2>&1; then
+  # The banner and footer are baked into each initramfs by the hook, so new ones need a
+  # rebuild too.
+  live=$(mktemp -d)
+  if ! "$ROOT/plymouth/vault-tec/render-footer" "$live"; then
+    rm -rf "$live"
+    echo "render-footer could not draw this system's banner and footer (needs magick)" >&2
+    exit 1
+  fi
+
+  if ! diff -rq -x footer.png -x 'banner-*.png' "$ROOT/plymouth/vault-tec" "$THEME" >/dev/null 2>&1; then
     sudo install -d -m 0755 "$THEME"
-    sudo rsync -a --delete --exclude=footer.png --chown=root:root --chmod=D755,F644 \
+    sudo rsync -a --delete --exclude=footer.png --exclude='banner-*.png' --chown=root:root --chmod=D755,F644 \
       "$ROOT/plymouth/vault-tec/" "$THEME/"
     sudo chmod 0755 "$THEME/render-footer"
     changed=1
   fi
 
-  # The footer is baked into each initramfs by the hook, so a new one needs a rebuild too.
-  footer=$(mktemp)
-  "$ROOT/plymouth/vault-tec/render-footer" "$footer" || cp "$ROOT/plymouth/vault-tec/footer.png" "$footer"
-  put 0644 "$THEME/footer.png" <"$footer" && changed=1
-  rm -f "$footer"
+  for file in $LIVE; do
+    put 0644 "$THEME/$file" <"$live/$file" && changed=1
+  done
+  rm -rf "$live"
 
   put 0644 "$INITCPIO_HOOK" <<'EOF' && changed=1
 #!/bin/bash
 
-# Vault-Tec boot screen: draw the footer for the kernel this initramfs boots.
+# Vault-Tec boot screen: draw the banner and footer for the kernel this initramfs boots.
 build() {
-  local theme=/usr/share/plymouth/themes/vault-tec footer
+  local theme=/usr/share/plymouth/themes/vault-tec live file
 
   [[ $(plymouth-set-default-theme) == vault-tec && -x $theme/render-footer ]] || return 0
-  footer=$(mktemp)
-  if "$theme/render-footer" "$footer" "$KERNELVERSION"; then
-    add_file "$footer" "$theme/footer.png" 644
+  live=$(mktemp -d)
+  if "$theme/render-footer" "$live" "$KERNELVERSION"; then
+    for file in "$live"/*.png; do
+      add_file "$file" "$theme/${file##*/}" 644
+    done
   else
-    warning "vault-tec-plymouth: footer not redrawn, keeping the installed one"
+    warning "vault-tec-plymouth: banner and footer not redrawn, keeping the installed ones"
   fi
-  rm -f "$footer"
+  rm -rf "$live"
 }
 
 help() {
-  echo "Redraws the Vault-Tec Plymouth footer (Omarchy, kernel, hostname) per initramfs."
+  echo "Redraws the Vault-Tec Plymouth banner and footer (Omarchy, kernel, hostname) per initramfs."
 }
 EOF
 
-  # After plymouth, which copies the theme the footer is drawn over.
+  # After plymouth, which copies the theme the banner and footer are drawn over.
   echo 'HOOKS+=(vault-tec-plymouth)' | put 0644 "$INITCPIO_CONF" && changed=1
 
   put 0644 "$PACMAN_HOOK" <<'EOF' || true
@@ -119,10 +131,10 @@ Operation = Upgrade
 Target = usr/lib/modules/*/vmlinuz
 
 [Action]
-Description = Redrawing the Vault-Tec boot screen footer...
+Description = Redrawing the Vault-Tec boot screen banner and footer...
 When = PostTransaction
 NeedsTargets
-Exec = /bin/sh -c 'theme=/usr/share/plymouth/themes/vault-tec; [ "$(plymouth-set-default-theme)" = vault-tec ] || exit 0; "$theme/render-footer" "$theme/footer.png" || true; grep -q "^usr/lib/modules/" && exit 0; if command -v limine-mkinitcpio >/dev/null; then limine-mkinitcpio; else mkinitcpio -P; fi'
+Exec = /bin/sh -c 'theme=/usr/share/plymouth/themes/vault-tec; [ "$(plymouth-set-default-theme)" = vault-tec ] || exit 0; "$theme/render-footer" "$theme" || true; grep -q "^usr/lib/modules/" && exit 0; if command -v limine-mkinitcpio >/dev/null; then limine-mkinitcpio; else mkinitcpio -P; fi'
 EOF
 
   local current

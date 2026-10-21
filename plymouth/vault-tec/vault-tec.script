@@ -1,9 +1,11 @@
 # Dark Terminal Protocol boot screen: boot.html as a Plymouth script.
 #
-# Lock stage: emblem, wordmark and the passphrase field (dots, blinking block,
-# shake and red border on a refused passphrase, green when it is accepted). Init stage:
-# Vault Boy, the progress bar and INITIALIZING SYSTEM... until the session starts.
-# Shutdown and reboot show the emblem only.
+# Lock stage: the lock screen's RobCo terminal (anerti.lock), typing itself out: OMARCHY
+# (TM) TERMINAL PROTOCOL, the emblem drawn in from the top, the banner (versions,
+# copyright, hostname), a rule, then "> ENTER PASSWORD:" echoing an asterisk per
+# character, over > VERIFYING... or > ACCESS DENIED. Init stage: Vault Boy, the progress
+# bar and INITIALIZING SYSTEM... until the session starts. Shutdown and reboot type the
+# terminal without its prompt.
 #
 # Every piece is cut from the mockup rendered at 1920x1080 (tools/build-plymouth); the
 # layout block below says where each one sat. Other screens get the same layout scaled
@@ -14,42 +16,61 @@ layout.termlink.x = 838;
 layout.termlink.y = 16;
 layout.termlink.w = 240;
 layout.termlink.h = 19;
-layout.emblem.x = 577;
-layout.emblem.y = 194;
-layout.emblem.w = 766;
-layout.emblem.h = 492;
-layout.wordmark.x = 755;
-layout.wordmark.y = 570;
-layout.wordmark.w = 409;
-layout.wordmark.h = 48;
-layout.lock.x = 733;
-layout.lock.y = 663;
-layout.lock.w = 23;
-layout.lock.h = 26;
-layout.dot.x = 33;
-layout.dot.y = 33;
-layout.dot.w = 24;
-layout.dot.h = 24;
-layout.block.x = 955;
-layout.block.y = 665;
-layout.block.w = 10;
-layout.block.h = 24;
-layout.field.x = 742;
-layout.field.y = 615;
-layout.field.w = 437;
-layout.field.h = 123;
-layout.field_error.x = 742;
-layout.field_error.y = 615;
-layout.field_error.w = 437;
-layout.field_error.h = 123;
-layout.field_ok.x = 734;
-layout.field_ok.y = 607;
-layout.field_ok.w = 453;
-layout.field_ok.h = 139;
-layout.verify.x = 872;
-layout.verify.y = 720;
-layout.verify.w = 171;
-layout.verify.h = 24;
+layout.title.x = 761;
+layout.title.y = 70;
+layout.title.w = 395;
+layout.title.h = 33;
+layout.emblem.x = 642;
+layout.emblem.y = 69;
+layout.emblem.w = 636;
+layout.emblem.h = 345;
+layout.emblem_box.x = 700;
+layout.emblem_box.y = 141;
+layout.emblem_box.w = 520;
+layout.emblem_box.h = 201;
+layout.reveal.x = 691;
+layout.reveal.y = 332;
+layout.reveal.w = 538;
+layout.reveal.h = 22;
+layout.banner_line.x = 410;
+layout.banner_line.y = 384;
+layout.banner_line.w = 1100;
+layout.banner_line.h = 23;
+layout.rule.x = 401;
+layout.rule.y = 479;
+layout.rule.w = 1118;
+layout.rule.h = 22;
+layout.rule_box.x = 410;
+layout.rule_box.y = 489;
+layout.rule_box.w = 1100;
+layout.rule_box.h = 2;
+layout.prompt.x = 410;
+layout.prompt.y = 519;
+layout.prompt.w = 285;
+layout.prompt.h = 29;
+layout.star.x = 706;
+layout.star.y = 519;
+layout.star.w = 26;
+layout.star.h = 22;
+layout.block.x = 712;
+layout.block.y = 520;
+layout.block.w = 16;
+layout.block.h = 26;
+layout.verify.x = 405;
+layout.verify.y = 557;
+layout.verify.w = 187;
+layout.verify.h = 32;
+layout.denied.x = 405;
+layout.denied.y = 557;
+layout.denied.w = 205;
+layout.denied.h = 32;
+layout.prompt_step = 16.6000;
+layout.term_step = 12.7692;
+layout.banner_pitch = 27.0000;
+layout.title_chars = 30;
+layout.prompt_chars = 18;
+layout.verify_chars = 14;
+layout.denied_chars = 15;
 layout.bar_box.x = 750;
 layout.bar_box.y = 734;
 layout.bar_box.w = 420;
@@ -424,50 +445,125 @@ fun setup_backdrop() {
 
 #----------------------------------------- Lock stage --------------------------------
 
-emblem = Sprite();
-wordmark = Sprite();
-lock = Sprite();
-verify = Sprite();
-field.sprite = Sprite();
+# The lock screen's timing: a character every 35 ms after 400 ms, 6 characters' pause
+# between lines, 22 for the emblem and 10 for the rule.
+TYPE_MS = 35;
+PAUSE = 6;
+LOGO_TICKS = 22;
+RULE_TICKS = 10;
+# The .1em tracking every line is padded with in front, at 20px and at the prompt's 26px.
+PAD = 2;
+PROMPT_PAD = 2.6;
+
+emblem.sprite = Sprite();
+reveal.sprite = Sprite();
+rule.sprite = Sprite();
+cursor.sprite = Sprite();
+block.sprite = Sprite();
 label.sprite = Sprite();
 label.text = "";
+label.y = 0;
+answer.sprite = Sprite();
 
-# The field's centre (its glow is symmetric) anchors the dots, the block and the shake.
-field.cx = layout.field.x + layout.field.w / 2;
-field.cy = layout.field.y + layout.field.h / 2;
-field.l["focus"] = layout.field;
-field.l["checking"] = layout.field;
-field.l["error"] = layout.field_error;
-field.l["ok"] = layout.field_ok;
+# The terminal's left edge and the stars' place after "> ENTER PASSWORD: ".
+term.left = layout.rule_box.x;
+term.right = layout.rule_box.x + layout.rule_box.w;
+stars.x = layout.block.x;
 
-# Enough dots to fill the row; the newest 21 show once it overflows.
-DOTS = 24;
-for (slot = 0; slot < DOTS; slot++) {
-  dot.sprite[slot] = Sprite();
-  dot.sprite[slot].SetOpacity(0);
+# Typed lines: 0 the title, 1-3 the banner, 4 the prompt, 5 and 6 the status lines.
+# Each has its sprite's place (x, y), its text box's left edge, its advance per character,
+# its length and its cursor's centre.
+for (i = 0; i < 7; i++) {
+  line.sprite[i] = Sprite();
+  line.sprite[i].SetOpacity(0);
+  line.step[i] = layout.term_step;
+  line.pad[i] = PAD;
 }
-block.sprite = Sprite();
+line.file[1] = "banner-1.png";
+line.file[2] = "banner-2.png";
+line.file[3] = "banner-3.png";
+line.file[0] = "title.png"; line.x[0] = layout.title.x; line.y[0] = layout.title.y;
+line.chars[0] = layout.title_chars;
+line.file[4] = "prompt.png"; line.x[4] = layout.prompt.x; line.y[4] = layout.prompt.y;
+line.chars[4] = layout.prompt_chars; line.left[4] = term.left;
+line.step[4] = layout.prompt_step; line.pad[4] = PROMPT_PAD;
+line.cy[4] = layout.block.y + layout.block.h / 2;
+line.file[5] = "verify.png"; line.x[5] = layout.verify.x; line.y[5] = layout.verify.y;
+line.chars[5] = layout.verify_chars; line.left[5] = term.left;
+line.file[6] = "denied.png"; line.x[6] = layout.denied.x; line.y[6] = layout.denied.y;
+line.chars[6] = layout.denied_chars; line.left[6] = term.left;
+line.left[0] = 960 - (PAD + line.chars[0] * line.step[0]) / 2;
+line.cy[0] = layout.title.y + layout.title.h / 2;
+# render-footer centres each banner line in CELL px a character plus MARGIN across.
+BANNER_CELL = 13;
+BANNER_MARGIN = 48;
+
+# Enough stars to fill the row; the newest ones show once it overflows.
+STARS = 48;
+for (slot = 0; slot < STARS; slot++) {
+  star.sprite[slot] = Sprite();
+  star.sprite[slot].SetOpacity(0);
+}
 
 fun text_image(text, red, green, blue) {
   return Image.Text(text, red, green, blue, 1, "monospace " + Math.Int(13 * global.s + 0.5));
 }
 
 fun setup_lock() {
-  piece(emblem, "emblem.png", layout.emblem, 20);
-  piece(wordmark, "wordmark.png", layout.wordmark, 20);
-  piece(lock, "lock.png", layout.lock, 20);
-  piece(verify, "verify.png", layout.verify, 20);
+  emblem.image = load("emblem.png");
+  emblem.sprite.SetPosition(px(layout.emblem.x), py(layout.emblem.y), 20);
+  reveal.sprite.SetImage(load("reveal.png"));
+  rule.image = load("rule.png");
+  cursor.image = load("block.png");
+  cursor.small = cursor.image.Scale(Math.Int(12 * global.s + 0.5), Math.Int(20 * global.s + 0.5));
+  block.sprite.SetImage(cursor.image);
+  star.image = load("star.png");
+  for (slot = 0; slot < STARS; slot++) star.sprite[slot].SetImage(star.image);
 
-  field.image["focus"] = load("field.png");
-  field.image["error"] = load("field-error.png");
-  field.image["ok"] = load("field-ok.png");
-  field.image["checking"] = field.image["focus"];
-
-  dot.image = load("dot.png");
-  for (slot = 0; slot < DOTS; slot++) dot.sprite[slot].SetImage(dot.image);
-  block.sprite.SetImage(load("block.png"));
-
+  for (i = 0; i < 7; i++) {
+    line.image[i] = load(line.file[i]);
+    line.shown[i] = -1;
+  }
+  # The banner lines are centred, so their text boxes follow from their widths.
+  for (i = 1; i <= 3; i++) {
+    w = line.image[i].GetWidth() / global.s;
+    h = line.image[i].GetHeight() / global.s;
+    line.chars[i] = 0;
+    if (w > BANNER_MARGIN) line.chars[i] = Math.Int((w - BANNER_MARGIN) / BANNER_CELL + 0.5);
+    line.x[i] = 960 - w / 2;
+    line.cy[i] = layout.banner_line.y + layout.banner_line.h / 2 + (i - 1) * layout.banner_pitch;
+    line.y[i] = line.cy[i] - h / 2;
+    line.left[i] = 960 - (PAD + line.chars[i] * layout.term_step) / 2;
+  }
+  emblem.cut = -1;
+  rule.cut = -1;
+  plan();
   set_label(label.text);
+}
+
+# When each piece starts typing, in characters, as the lock screen lays its timeline out.
+fun plan() {
+  t = line.chars[0] + PAUSE;
+  global.logo_start = t;
+  t += LOGO_TICKS + PAUSE;
+  for (i = 1; i <= 3; i++) {
+    line.start[i] = t;
+    if (line.chars[i]) t += line.chars[i] + PAUSE;
+    line.until[i] = t;
+  }
+  line.start[0] = 0;
+  line.until[0] = global.logo_start;
+  global.rule_start = t;
+  global.prompt_start = t + RULE_TICKS + PAUSE;
+}
+
+# Characters typed so far; a key press shows everything at once, as on the lock screen.
+global.skip = 0;
+fun typed() {
+  if (global.skip) return 100000;
+  ms = global.tick * 1000 / TICKS - 400;
+  if (ms < 0) return -1;
+  return Math.Int(ms / TYPE_MS);
 }
 
 fun set_label(text) {
@@ -477,15 +573,91 @@ fun set_label(text) {
     return;
   }
   label.sprite.SetImage(text_image(text, 0.486, 0.580, 0.502));
-  label.sprite.SetPosition(px(960) - label.sprite.GetImage().GetWidth() / 2,
-                           py(layout.verify.y + layout.verify.h / 2) - label.sprite.GetImage().GetHeight() / 2, 20);
+  label.y = py(layout.verify.y + layout.verify.h / 2) - label.sprite.GetImage().GetHeight() / 2;
 }
 
-# From the mockup's CSS: 0.62em dots and block, 6px gap, a 381px field with 3px borders
-# and 18px padding, so 339px for the row before it clamps to the right edge.
-DOT = 9.92;
-GAP = 6;
-INNER = 339;
+# Line i with its first n characters, cropped at the next one's text box.
+fun draw_line(i, n, visible) {
+  if (n > line.chars[i]) n = line.chars[i];
+  if (!visible || n <= 0) {
+    line.sprite[i].SetOpacity(0);
+    return;
+  }
+  if (n != line.shown[i]) {
+    image = line.image[i];
+    if (n < line.chars[i]) {
+      w = Math.Int((line.left[i] + line.pad[i] + n * line.step[i] - line.x[i]) * global.s + 0.5);
+      if (w < 1) {
+        line.sprite[i].SetOpacity(0);
+        return;
+      }
+      if (w < image.GetWidth()) image = image.Crop(0, 0, w, image.GetHeight());
+    }
+    line.sprite[i].SetImage(image);
+    line.shown[i] = n;
+  }
+  line.sprite[i].SetPosition(px(line.x[i]), py(line.y[i]), 20);
+  line.sprite[i].SetOpacity(1);
+}
+
+# The typing cursor: after the n characters of line i, while that line is typing.
+fun draw_cursor(i, n) {
+  if (i == 4) image = cursor.image;
+  else image = cursor.small;
+  if (n > line.chars[i]) n = line.chars[i];
+  x = line.left[i] + line.pad[i] + n * line.step[i];
+  cursor.sprite.SetImage(image);
+  cursor.sprite.SetPosition(px(x), py(line.cy[i]) - image.GetHeight() / 2, 21);
+  cursor.sprite.SetOpacity(flag(global.blink_on));
+}
+
+fun draw_emblem(visible, k) {
+  r = (k - global.logo_start) / LOGO_TICKS;
+  if (!visible || r <= 0) {
+    emblem.sprite.SetOpacity(0);
+    reveal.sprite.SetOpacity(0);
+    return;
+  }
+  if (r > 1) r = 1;
+  # Its glow above, then as much of the mark as has been drawn.
+  if (r != emblem.cut) {
+    emblem.cut = r;
+    image = emblem.image;
+    if (r < 1) {
+      h = Math.Int((layout.emblem_box.y - layout.emblem.y + layout.emblem_box.h * r) * global.s + 0.5);
+      if (h > 0) image = image.Crop(0, 0, image.GetWidth(), h);
+    }
+    emblem.sprite.SetImage(image);
+  }
+  emblem.sprite.SetPosition(px(layout.emblem.x), py(layout.emblem.y), 20);
+  # @keyframes holo, 4.5s ease-in-out: opacity .92 -> 1 -> .92.
+  emblem.sprite.SetOpacity(0.96 - 0.04 * Math.Cos(2 * Math.Pi * global.tick / TICKS / 4.5));
+
+  reveal.sprite.SetPosition(px(layout.reveal.x), py(layout.reveal.y + layout.emblem_box.h * r - layout.emblem_box.h), 21);
+  reveal.sprite.SetOpacity(flag(r < 1));
+}
+
+# The rule grows out from the centre.
+fun draw_rule(visible, k) {
+  f = (k - global.rule_start) / RULE_TICKS;
+  if (!visible || f <= 0) {
+    rule.sprite.SetOpacity(0);
+    return;
+  }
+  if (f > 1) f = 1;
+  glow = layout.rule_box.x - layout.rule.x;
+  if (f != rule.cut) {
+    rule.cut = f;
+    image = rule.image;
+    if (f < 1) {
+      w = Math.Int((layout.rule_box.w * f + 2 * glow) * global.s + 0.5);
+      image = image.Crop(Math.Int((image.GetWidth() - w) / 2), 0, w, image.GetHeight());
+    }
+    rule.sprite.SetImage(image);
+  }
+  rule.sprite.SetPosition(px(960) - rule.sprite.GetImage().GetWidth() / 2, py(layout.rule.y), 20);
+  rule.sprite.SetOpacity(1);
+}
 
 global.state = "focus";
 global.bullets = 0;
@@ -493,63 +665,76 @@ global.prompted = 0;
 global.question = 0;
 global.first_prompt = "";
 global.many_prompts = 0;
-answer.sprite = Sprite();
-global.shake_tick = -100;
+global.prompt_from = 0;
+global.status_tick = 0;
 global.phase = 0;
+global.blink_on = 1;
 
-fun shake_offset() {
-  # @keyframes shake, .4s linear: 0 -8 8 -5 5 0 at every 20%.
-  u = (global.tick - global.shake_tick) / (0.4 * TICKS);
-  if (u >= 1 || u < 0) return 0;
-  k[0] = 0; k[1] = -8; k[2] = 8; k[3] = -5; k[4] = 5; k[5] = 0;
-  i = Math.Int(u * 5);
-  f = u * 5 - i;
-  return (k[i] + (k[i + 1] - k[i]) * f) * global.s;
+# The status line, retyped whenever it changes: VERIFYING... while the passphrase is
+# checked, ACCESS DENIED (red) once it is refused, until typing starts again.
+fun set_state(name) {
+  if (name != global.state) global.status_tick = global.tick;
+  global.state = name;
 }
 
-fun draw_field(visible) {
-  dx = shake_offset();
-  l = field.l[global.state];
-  field.sprite.SetImage(field.image[global.state]);
-  field.sprite.SetPosition(px(l.x) + dx, py(l.y), 30);
-  field.sprite.SetOpacity(visible);
-
-  answer.sprite.SetOpacity(flag(visible && global.question));
-  if (global.question) {
-    answer.sprite.SetPosition(px(field.cx) - answer.sprite.GetImage().GetWidth() / 2 + dx,
-                              py(field.cy) - answer.sprite.GetImage().GetHeight() / 2, 31);
-  }
-
-  n = global.bullets;
-  if (global.question) n = 0;
-  width = (n + 1) * DOT + n * GAP;
-  left = field.cx - width / 2;
-  if (width > INNER) left = field.cx + INNER / 2 - width;
-
-  # Past DOTS typed, only the newest dots (all that fit) are drawn.
-  first = 0;
-  if (n > DOTS) first = n - DOTS;
-  for (i = 0; i < DOTS; i++) {
-    x = left + (first + i) * (DOT + GAP);
-    dot.sprite[i].SetPosition(px(x + DOT / 2) - dot.image.GetWidth() / 2 + dx,
-                              py(field.cy) - dot.image.GetHeight() / 2, 31);
-    # Dots pushed out of the row's left edge are clipped, as by the row's overflow.
-    if (visible && !global.question && first + i < n && x >= field.cx - INNER / 2 - 0.5) dot.sprite[i].SetOpacity(1);
-    else dot.sprite[i].SetOpacity(0);
-  }
-
-  x = left + n * (DOT + GAP);
-  block.sprite.SetPosition(px(x + DOT / 2) - layout.block.w * global.s / 2 + dx,
-                           py(field.cy) - layout.block.h * global.s / 2, 31);
-  # steps(1) blink: on for the first half of every second, only while typing is possible.
+fun draw_terminal() {
+  visible = flag(global.stage != "init");
+  prompt = flag(global.stage == "lock");
+  k = typed();
+  # steps(1) blink, 500 ms on and off.
   global.phase = Math.Int(global.tick * 2 / TICKS) % 2;
-  on = global.state == "focus" || global.state == "error";
-  if (visible && on && !global.question && global.phase == 0) block.sprite.SetOpacity(1);
-  else block.sprite.SetOpacity(0);
+  global.blink_on = global.phase == 0;
+  typing = -1;
 
-  if (visible && global.state == "checking") verify.SetOpacity(1);
-  else verify.SetOpacity(0);
-  label.sprite.SetOpacity(flag(visible && label.text != "" && global.state != "checking"));
+  for (i = 0; i <= 3; i++) {
+    draw_line(i, k - line.start[i], visible);
+    if (visible && k >= line.start[i] && k < line.until[i] && line.chars[i]) {
+      typing = i;
+      n = k - line.start[i];
+    }
+  }
+  draw_emblem(visible, k);
+  draw_rule(visible, k);
+
+  # The prompt types once the rule is down and the passphrase has been asked for.
+  p = k - global.prompt_from;
+  draw_line(4, p, prompt);
+  ready = prompt && p >= line.chars[4];
+  if (prompt && !ready && p >= 0) {
+    typing = 4;
+    n = p;
+  }
+  if (typing >= 0) draw_cursor(typing, n);
+  else cursor.sprite.SetOpacity(0);
+
+  # The stars, then the block; once they reach the right edge, the row scrolls left.
+  count = global.bullets;
+  if (global.question || !ready) count = 0;
+  shift = stars.x + count * layout.prompt_step + layout.block.w - term.right;
+  if (shift < 0) shift = 0;
+  first = 0;
+  if (count > STARS) first = count - STARS;
+  for (i = 0; i < STARS; i++) {
+    x = stars.x + (first + i) * layout.prompt_step - shift;
+    star.sprite[i].SetPosition(px(x + layout.star.x - stars.x), py(layout.star.y), 20);
+    star.sprite[i].SetOpacity(flag(first + i < count && x >= stars.x - 0.5));
+  }
+  block.sprite.SetPosition(px(layout.block.x + count * layout.prompt_step - shift), py(layout.block.y), 20);
+  on = global.state == "focus" || global.state == "error";
+  block.sprite.SetOpacity(flag(ready && on && !global.question && global.blink_on));
+
+  answer.sprite.SetOpacity(flag(ready && global.question));
+  if (global.question)
+    answer.sprite.SetPosition(px(stars.x), py(line.cy[4]) - answer.sprite.GetImage().GetHeight() / 2, 20);
+
+  n = Math.Int((global.tick - global.status_tick) * 1000 / TICKS / TYPE_MS);
+  draw_line(5, n, ready && global.state == "checking");
+  draw_line(6, n, ready && global.state == "error");
+  x = term.left + PAD;
+  if (global.state == "error") x += (line.chars[6] + 2) * line.step[6];
+  label.sprite.SetPosition(px(x), label.y, 20);
+  denied = global.state == "error" && n >= line.chars[6];
+  label.sprite.SetOpacity(flag(ready && label.text != "" && (global.state == "focus" || denied)));
 }
 
 #----------------------------------------- Init stage --------------------------------
@@ -635,22 +820,27 @@ fun draw_init(visible) {
 #----------------------------------------- Stages --------------------------------
 
 # lock: waiting for (or checking) the passphrase. init: unlocked, booting.
-# idle: shutdown and reboot, or the boot before a prompt shows up: emblem, no field.
+# idle: shutdown and reboot, or the boot before a prompt shows up: the terminal, no prompt.
 global.stage = "idle";
 global.tick = 0;
 global.init_tick = 0;
+global.drawn = "";
 
 fun apply_stage() {
   name = global.stage;
-  emblem.SetOpacity(flag(name != "init"));
-  wordmark.SetOpacity(flag(name != "init"));
-  lock.SetOpacity(flag(name == "lock"));
-  draw_field(flag(name == "lock"));
+  termlink.SetOpacity(flag(name == "init"));
+  footer.SetOpacity(flag(name == "init"));
+  draw_terminal();
   draw_init(flag(name == "init"));
 }
 
 fun show_stage(name) {
   global.stage = name;
+  if (name == "lock") {
+    # The prompt types after the rule, or as soon as it is asked for if that is later.
+    global.prompt_from = 0;
+    if (!global.skip) global.prompt_from = Math.Max(global.prompt_start, typed());
+  }
   if (name == "init") {
     global.init_tick = global.tick;
     global.target = 0;
@@ -658,6 +848,18 @@ fun show_stage(name) {
     global.bar_now = 0;
   }
   apply_stage();
+}
+
+# What the terminal shows this tick, past which redrawing it changes nothing: the
+# characters typed up to the end of the prompt, the status line's and the blink.
+fun terminal_frame() {
+  k = typed();
+  end = global.prompt_start;
+  if (global.stage == "lock") end = global.prompt_from + line.chars[4] + 1;
+  if (k > end) k = end;
+  n = Math.Int((global.tick - global.status_tick) * 1000 / TICKS / TYPE_MS);
+  if (n > 20) n = 20;
+  return k + ":" + n + ":" + Math.Int(global.tick * 2 / TICKS) % 2;
 }
 
 fun refresh_callback() {
@@ -672,23 +874,26 @@ fun refresh_callback() {
     beam.sprite.SetY(-global.sh * 0.18 + f * 8.5 * beam.h);
   }
 
-  if (global.stage == "init") draw_init(1);
+  if (global.stage == "init") {
+    draw_init(1);
+  } else {
+    frame = terminal_frame();
+    if (frame != global.drawn) {
+      global.drawn = frame;
+      draw_terminal();
+    } else if (even) {
+      # @keyframes holo, 4.5s ease-in-out: opacity .92 -> 1 -> .92.
+      if (emblem.cut > 0) emblem.sprite.SetOpacity(0.96 - 0.04 * Math.Cos(2 * Math.Pi * t / 4.5));
+    }
+  }
 
-  # @keyframes holo, 4.5s ease-in-out: opacity .92 -> 1 -> .92.
-  if (even && global.stage != "init") emblem.SetOpacity(0.96 - 0.04 * Math.Cos(2 * Math.Pi * t / 4.5));
-
-  if (global.stage == "lock" && global.state == "ok" && global.tick - global.ok_tick >= 0.7 * TICKS) {
-    # Unlocked: green for 700 ms, then the init stage.
-    show_stage("init");
-  } else if (global.stage == "lock") {
+  if (global.stage == "lock") {
     # No answer either way. An opened volume normally reports through the root-mounted
     # callback within seconds; this is only the fallback, long enough that a refused
     # passphrase (every keyslot tried, slow on slow hardware) re-prompts first.
     if (global.state == "checking" && global.tick - global.check_tick >= 20 * TICKS) granted();
-    # Redraw on a blink edge or while shaking; the callbacks redraw everything else.
-    if (Math.Int(global.tick * 2 / TICKS) % 2 != global.phase || global.tick - global.shake_tick <= 0.4 * TICKS + 1)
-      draw_field(1);
-  } else if (global.stage == "idle" && Plymouth.GetMode() == "boot" && global.tick >= 6 * TICKS && !global.prompted) {
+  } else if (global.stage == "idle" && Plymouth.GetMode() == "boot" && global.tick >= 6 * TICKS &&
+             typed() >= global.prompt_start && !global.prompted) {
     # Nothing to unlock: go straight to initializing.
     show_stage("init");
   }
@@ -698,11 +903,11 @@ Plymouth.SetRefreshFunction(refresh_callback);
 
 #----------------------------------------- Passphrase --------------------------------
 
+# Accepted: on to initializing.
 fun granted() {
   if (global.stage == "lock" && global.state == "checking") {
-    global.state = "ok";
-    global.ok_tick = global.tick;
-    draw_field(1);
+    set_state("focus");
+    show_stage("init");
   }
 }
 
@@ -713,44 +918,46 @@ fun note_prompt(prompt) {
   else set_label("");
 }
 
-fun display_password_callback(prompt, bullets) {
+# Asked again after an answer: the passphrase was refused.
+fun asked() {
   global.prompted = 1;
+  if (global.stage != "lock") show_stage("lock");
+  if (global.state == "checking") set_state("error");
+}
+
+fun display_password_callback(prompt, bullets) {
   global.question = 0;
   note_prompt(prompt);
-  if (global.stage != "lock") show_stage("lock");
-  if (global.state == "checking") {
-    # Asked again after an answer: the passphrase was refused.
-    global.state = "error";
-    global.shake_tick = global.tick;
-  } else if (global.state == "ok") {
-    global.state = "focus";
+  asked();
+  # Typing shows the whole terminal at once and clears ACCESS DENIED.
+  if (bullets > 0) {
+    global.skip = 1;
+    if (global.state == "error") set_state("focus");
   }
   global.bullets = bullets;
-  draw_field(1);
+  draw_terminal();
 }
 
 fun display_normal_callback() {
-  # The prompt was answered (or never shown); hold the dots while it is checked.
-  if (global.stage == "lock" && global.state != "ok" && global.state != "checking") {
-    global.state = "checking";
+  # The prompt was answered (or never shown): it empties while the answer is checked.
+  if (global.stage == "lock" && global.state != "checking") {
+    set_state("checking");
     global.check_tick = global.tick;
-    draw_field(1);
+    global.bullets = 0;
+    draw_terminal();
   }
 }
 
 fun display_question_callback(prompt, entry) {
-  global.prompted = 1;
   global.question = 1;
   set_label(prompt);
-  answer.sprite.SetImage(text_image(entry + "_", 0.839, 1, 0.890));
-  if (global.stage != "lock") show_stage("lock");
-  if (global.state == "checking") {
-    global.state = "error";
-    global.shake_tick = global.tick;
-  } else if (global.state == "ok") {
-    global.state = "focus";
+  answer.sprite.SetImage(text_image(entry + "_", 0.173, 0.682, 0.180));
+  asked();
+  if (entry != "") {
+    global.skip = 1;
+    if (global.state == "error") set_state("focus");
   }
-  draw_field(1);
+  draw_terminal();
 }
 
 # The root filesystem mounted, or systemd reporting the encrypted volume open.

@@ -119,7 +119,7 @@ boot_active() {
 
 # Active and the same as this checkout's build, so there is nothing to rebuild.
 boot_current() {
-  boot_active && diff -rq -x footer.png "$ROOT/plymouth/vault-tec" "$BOOT_THEME" >/dev/null 2>&1
+  boot_active && diff -rq -x footer.png -x 'banner-*.png' "$ROOT/plymouth/vault-tec" "$BOOT_THEME" >/dev/null 2>&1
 }
 
 login_state() {

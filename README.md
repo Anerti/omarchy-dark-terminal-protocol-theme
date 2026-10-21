@@ -38,12 +38,14 @@ The lock screen is laid out like a RobCo terminal: OMARCHY (TM) TERMINAL PROTOCO
 
 ## Wallpaper Gallery
 
-This theme includes two wallpapers.
+This theme includes four wallpapers.
 
 | Preview | Artwork |
 | ------- | ------- |
 | ![Omarchy logo](backgrounds/1-omarchy-logo.jpg) | Omarchy, the winged mark on black: "The malleable OS for the age of agents" |
 | ![Welcome Home](backgrounds/2-welcome-home.jpg) | Welcome Home: Vault Boy giving a thumbs-up |
+| ![Omarchy wordmark](backgrounds/3-omarchy-wordmark.jpg) | The Omarchy wordmark as the Fallout 4 title card, with an Omarchy theme wallpaper showing through each letter |
+| ![Omarchy pin-up](backgrounds/4-omarchy-pin-up.jpg) | The Nuka-Cola space pin-up, rebranded: "Omarchy: Beautiful, fun & agentic Linux" |
 
 ## Color Palette
 

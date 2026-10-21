@@ -1106,8 +1106,10 @@ Item {
           MultiEffect {
             anchors.fill: logoImage
             source: logoImage
+            colorization: 1.0
+            colorizationColor: Commons.Color.foreground
             shadowEnabled: true
-            shadowColor: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.55)
+            shadowColor: Util.alpha(Commons.Color.foreground, 0.55)
             shadowBlur: 0.6
             shadowHorizontalOffset: 0
             shadowVerticalOffset: 0
@@ -1138,9 +1140,9 @@ Item {
             anchors.fill: artGif
             source: artGif
             colorization: 1.0
-            colorizationColor: "#2cae2e"
+            colorizationColor: Commons.Color.foreground
             shadowEnabled: true
-            shadowColor: Qt.rgba(44 / 255, 174 / 255, 46 / 255, 0.6)
+            shadowColor: Util.alpha(Commons.Color.foreground, 0.6)
             shadowBlur: 0.5
             shadowHorizontalOffset: 0
             shadowVerticalOffset: 0

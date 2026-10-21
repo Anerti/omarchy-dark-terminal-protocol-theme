@@ -312,7 +312,7 @@ Item {
 
     WlSessionLockSurface {
       id: lockSurface
-      color: "#020a05"
+      color: lockView.bgDeep
 
       LockView {
         id: lockView

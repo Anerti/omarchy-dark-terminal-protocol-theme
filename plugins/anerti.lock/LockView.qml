@@ -27,11 +27,16 @@ Item {
   property string kernelVersion: ""
   property string hostName: ""
 
-  readonly property color fg: "#2cae2e"
-  readonly property color muted: "#7c9480"
-  readonly property color urgent: "#ff5a3c"
-  readonly property color bgDeep: "#020a05"
+  readonly property color fg: Color.foreground
+  readonly property color muted: Color.muted
+  readonly property color urgent: Color.urgent
+  readonly property color bright: themePalette.brightForeground
+  readonly property color bg: Color.background
+  readonly property color bgDeep: themePalette.darkBackground
+  readonly property color bgGlow: themePalette.lighterBackground
   readonly property string textFamily: shareTech.status === FontLoader.Ready ? shareTech.name : Style.font.family
+
+  ThemePalette { id: themePalette }
 
   readonly property bool errorState: failureMessage.length > 0
   readonly property bool cursorOn: inputEnabled && !authenticatingPassword && !granting
@@ -77,6 +82,7 @@ Item {
 
   function px(n) { return Style.space(n) }
   function glowOf(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
+  function cssOf(c, a) { return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + "," + a + ")" }
 
   signal submitPassword(string password)
   signal passwordTextEdited(string password)
@@ -162,6 +168,8 @@ Item {
   Canvas {
     id: backdrop
     anchors.fill: parent
+    readonly property var shades: [root.fg, root.bg, root.bgDeep, root.bgGlow]
+    onShadesChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
 
@@ -182,9 +190,9 @@ Item {
       ctx.fillStyle = root.bgDeep
       ctx.fillRect(0, 0, width, height)
       ellipse(ctx, width / 2, height / 2, width * 1.3, height * 1.1,
-        [[0, "#0b2416"], [0.5, "#06170d"], [1, "#020a05"]])
+        [[0, root.cssOf(root.bgGlow, 1)], [0.5, root.cssOf(root.bg, 1)], [1, root.cssOf(root.bgDeep, 1)]])
       ellipse(ctx, width / 2, height * 0.44, width * 0.6, height * 0.55,
-        [[0, "rgba(44,174,46,0.10)"], [0.62, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]])
+        [[0, root.cssOf(root.fg, 0.10)], [0.62, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]])
     }
   }
 
@@ -306,6 +314,8 @@ Item {
             id: haze
             anchors.fill: emblemImage
             source: emblemImage
+            colorization: 1.0
+            colorizationColor: root.fg
             shadowEnabled: true
             shadowColor: root.glowOf(root.fg, 0.4)
             shadowBlur: 1.0
@@ -318,6 +328,8 @@ Item {
           MultiEffect {
             anchors.fill: emblemImage
             source: emblemImage
+            colorization: 1.0
+            colorizationColor: root.fg
             shadowEnabled: true
             shadowColor: root.glowOf(root.fg, 0.6)
             shadowBlur: 0.35
@@ -527,6 +539,7 @@ Item {
     MouseArea { anchors.fill: parent }
 
     Image {
+      id: card
       anchors.fill: parent
       source: root.loadBackground && (root.authenticatingPassword || root.granting || granted.visible)
         ? Qt.resolvedUrl("assets/please-stand-by.jpg") : ""
@@ -534,21 +547,31 @@ Item {
       asynchronous: true
       sourceSize.width: width
       sourceSize.height: height
+      visible: false
+    }
+
+    MultiEffect {
+      anchors.fill: card
+      source: card
+      colorization: 1.0
+      colorizationColor: root.fg
     }
 
     // Edge vignette (not a flat darkening, which buries the card's black text)
     // and the faint green bloom.
     Canvas {
       anchors.fill: parent
+      readonly property var shades: [root.fg, root.bgDeep]
+      onShadesChanged: requestPaint()
       onWidthChanged: requestPaint()
       onHeightChanged: requestPaint()
       onPaint: {
         var ctx = getContext("2d")
         ctx.reset()
         backdrop.ellipse(ctx, width / 2, height / 2, width * 1.2, height * 1.0,
-          [[0, "rgba(2,10,5,0.08)"], [0.28, "rgba(2,10,5,0.08)"], [0.7, "rgba(2,10,5,0.42)"], [1, "rgba(2,10,5,0.86)"]])
+          [[0, root.cssOf(root.bgDeep, 0.08)], [0.28, root.cssOf(root.bgDeep, 0.08)], [0.7, root.cssOf(root.bgDeep, 0.42)], [1, root.cssOf(root.bgDeep, 0.86)]])
         backdrop.ellipse(ctx, width / 2, height * 0.44, width * 0.6, height * 0.55,
-          [[0, "rgba(44,174,46,0.10)"], [0.62, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]])
+          [[0, root.cssOf(root.fg, 0.10)], [0.62, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]])
       }
     }
 
@@ -571,9 +594,9 @@ Item {
       width: parent.width
       height: parent.height * 0.2
       gradient: Gradient {
-        GradientStop { position: 0.0; color: Qt.rgba(214 / 255, 1, 227 / 255, 0) }
-        GradientStop { position: 0.5; color: Qt.rgba(214 / 255, 1, 227 / 255, 0.10) }
-        GradientStop { position: 1.0; color: Qt.rgba(214 / 255, 1, 227 / 255, 0) }
+        GradientStop { position: 0.0; color: Util.alpha(root.bright, 0) }
+        GradientStop { position: 0.5; color: Util.alpha(root.bright, 0.10) }
+        GradientStop { position: 1.0; color: Util.alpha(root.bright, 0) }
       }
 
       NumberAnimation on y {

@@ -30,10 +30,13 @@ Item {
   readonly property color fg: Color.foreground
   readonly property color muted: Color.muted
   readonly property color urgent: Color.urgent
-  readonly property color bright: Style.focusStateColor(Color.foreground, Color.accent, Color.urgent)
+  readonly property color bright: themePalette.brightForeground
   readonly property color bg: Color.background
-  readonly property color bgDeep: Qt.darker(Color.background, 2.3)
+  readonly property color bgDeep: themePalette.darkBackground
+  readonly property color bgGlow: themePalette.lighterBackground
   readonly property string textFamily: shareTech.status === FontLoader.Ready ? shareTech.name : Style.font.family
+
+  ThemePalette { id: themePalette }
 
   readonly property bool errorState: failureMessage.length > 0
   readonly property bool cursorOn: inputEnabled && !authenticatingPassword && !granting
@@ -165,7 +168,7 @@ Item {
   Canvas {
     id: backdrop
     anchors.fill: parent
-    readonly property var shades: [root.fg, root.bg, root.bgDeep]
+    readonly property var shades: [root.fg, root.bg, root.bgDeep, root.bgGlow]
     onShadesChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
@@ -187,7 +190,7 @@ Item {
       ctx.fillStyle = root.bgDeep
       ctx.fillRect(0, 0, width, height)
       ellipse(ctx, width / 2, height / 2, width * 1.3, height * 1.1,
-        [[0, root.cssOf(Qt.lighter(root.bg, 1.57), 1)], [0.5, root.cssOf(root.bg, 1)], [1, root.cssOf(root.bgDeep, 1)]])
+        [[0, root.cssOf(root.bgGlow, 1)], [0.5, root.cssOf(root.bg, 1)], [1, root.cssOf(root.bgDeep, 1)]])
       ellipse(ctx, width / 2, height * 0.44, width * 0.6, height * 0.55,
         [[0, root.cssOf(root.fg, 0.10)], [0.62, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]])
     }

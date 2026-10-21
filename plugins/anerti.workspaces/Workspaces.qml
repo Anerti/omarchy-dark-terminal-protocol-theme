@@ -12,9 +12,11 @@ BarWidget {
   moduleName: "anerti.workspaces"
 
   readonly property color fg: Color.foreground
-  readonly property color fgBright: Style.focusStateColor(Color.foreground, Color.accent, Color.urgent)
+  readonly property color fgBright: themePalette.brightForeground
   readonly property color fgDim: Qt.darker(Color.foreground, 1.05)
   readonly property color ink: Color.background
+
+  ThemePalette { id: themePalette }
 
   readonly property real lean: Math.tan(22 * Math.PI / 180)
   readonly property real tuck: 16

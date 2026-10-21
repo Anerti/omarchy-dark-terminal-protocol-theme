@@ -8,9 +8,9 @@
 
 set -euo pipefail
 
-root="$(cd "$(dirname "$0")/.." && pwd)"
-src="$root/tools/please-stand-by.jpg"
-out="$root/plugins/anerti.lock/assets/please-stand-by.jpg"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+src="$ROOT/tools/please-stand-by.jpg"
+out="$ROOT/plugins/anerti.lock/assets/please-stand-by.jpg"
 
 # The card is one green at varying brightness, so its green channel alone carries the
 # picture; 255/174 lifts #2cae2e's green to full white.

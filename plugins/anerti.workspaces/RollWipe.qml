@@ -4,7 +4,7 @@ import qs.Commons
 Item {
   id: root
 
-  readonly property color phosphor: Style.focusStateColor(Color.foreground, Color.accent, Color.urgent)
+  readonly property color phosphor: themePalette.brightForeground
   readonly property real bandHeight: height * 0.32
   readonly property bool running: roll.running
 
@@ -12,6 +12,8 @@ Item {
     roll.stop()
     roll.start()
   }
+
+  ThemePalette { id: themePalette }
 
   clip: true
   visible: roll.running

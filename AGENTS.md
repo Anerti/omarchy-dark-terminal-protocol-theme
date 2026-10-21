@@ -124,6 +124,9 @@ out to `magick` / `chromium` / `rsvg-convert` via `subprocess.run(check=True)`.
   each plugin is installed standalone.
 - `RollWipe.qml` is identical in `anerti.menu` and `anerti.workspaces`. Keep the two copies
   in sync.
+- `ThemePalette.qml` is identical in `anerti.{lock,menu,workspaces}`: it reads the active
+  theme's `bright_foreground`, `dark_background` and `lighter_background` from its
+  `colors.toml`, which the shell's `Color` does not expose.
 
 **Visual language:** use only `colors.toml` values: fg `#2cae2e`, bright `#d6ffe3`,
 muted `#7c9480`, accent `#ffcc33`, urgent `#ff5a3c`, background `#06170d`. Text uses

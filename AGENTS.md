@@ -2,8 +2,11 @@
 
 Dark Terminal Protocol: an Omarchy (Quattro) theme in the style of Fallout's RobCo terminals
 and Pip-Boy. Phosphor green on near-black, Vault-Tec yellow accent. Beyond the
-colour files, it ships Omarchy shell plugins (QML), an XCursor theme, a Plymouth boot
-screen, a CRT screen shader and the scripts that install them.
+colour files, it ships an XCursor theme, a Plymouth boot screen, a CRT screen shader and
+the scripts that install them. Its Omarchy shell plugins (QML) live in the Terminal
+Protocol Controller plugin (`~/Work/terminal-protocol-controller`,
+github.com/Anerti/terminal-protocol-controller), which `colored-terminal-protocol`, the
+coloured variant of this theme, shares.
 
 There is no test suite, linter config or CI; see Verifying.
 
@@ -17,32 +20,22 @@ There is no test suite, linter config or CI; see Verifying.
 | `alacritty.toml`, `foot.ini`, `ghostty.conf`, `kitty.conf`, `btop.theme`, `icons.theme`, `keyboard.rgb` | Per-app theme files Omarchy picks up. |
 | `backgrounds/` | Wallpapers. |
 | `logo/` | `vaulttec-omarchy.svg`: Vault-Tec wings around the Omarchy mark (generated), plus its fonts. |
-| `plugins/anerti.*` | Omarchy shell plugins, each a clone of a built-in (`manifest.json` → `omarchy.clonedFrom`). `plugins/omarchy-version` records the Omarchy release they were last synced with (`tools/upstream-check`). |
 | `cursors/VaultTec` | Built XCursor theme. |
 | `hooks/vault-tec-cursor` | Omarchy `theme-set` / `post-boot` hook: VaultTec cursors while this theme is active. |
 | `plymouth/src/` | Boot screen sources: `boot.html` + `fallout.css` (mockup copies), `vault-tec.script` template, `render-footer`, the Vault Boy GIF. |
 | `plymouth/vault-tec/` | Built Plymouth theme (generated, ~4 MB of PNG sprites). |
-| `bin/` | Installers/toggles for one part each: `vault-tec-plugins`, `vault-tec-cursor`, `vault-tec-crt`, `vault-tec-plymouth`. |
-| `tools/` | Build scripts for generated assets, `clone-panel`, and `upstream-check` (what changed in the built-ins the clones came from). |
-| `full-theme.sh` | Interactive setup (gum TUI): theme + cursors, then yes/no for menu, bar, login and the CRT effect; `--status`, `--unset` (everything back to built-in and the CRT effect off, then a ✓/✗ check of each plugin, built-in, the bar layout, the boot screen and the CRT effect). Signs off with the logo drawn as half-block art (cached in `~/.cache/vault-tec`). |
+| `bin/` | Installers/toggles for one part each: `vault-tec-cursor`, `vault-tec-crt`, `vault-tec-plymouth`. |
+| `tools/` | Build scripts for generated assets. |
+| `full-theme.sh` | Interactive setup (gum TUI), which needs the controller installed for the plugins: theme + cursors, then yes/no for menu, bar, login and the CRT effect; `--status`, `--unset` (everything back to built-in and the CRT effect off, then a ✓/✗ check of each plugin, built-in, the bar layout, the boot screen and the CRT effect). Signs off with the logo drawn as half-block art (cached in `~/.cache/vault-tec`). |
 
 ### Plugins
 
-- `anerti.menu`: Pip-Boy menu (replaces `omarchy.menu`). `Menu.qml` is the built-in's with no
-  comments, plus (keep these when syncing it with a new release):
-  - above the card, the Vault-Tec logo (20 px tall, as in the bar's wedge) and the Vault Boy GIF
-    of the highlighted row's section (`artSections`; `artZooms` enlarges `remove`), spaced
-    evenly with the search line by `brandGap`. Prompts (`select`/`input`) keep the bare card;
-  - a centred search line with a blinking block cursor, and no label on the root menu;
-  - the card 380 wide instead of 300;
-  - the section path of the highlighted search result in the selected text colour;
-  - `RollWipe` in its own full-screen, click-through window, played when the menu shows or
-    hides, unless a roll is still running;
-  - a private app library for when the shell hands it none.
-- `anerti.lock`: Omarchy terminal lock screen (`authentication` capability).
-- `anerti.workspaces`: the Vault-Tec wedge, which is also the bar's `centerAnchor` and stands in
-  for the Omarchy menu button.
-- `anerti.{agents,audio,bluetooth,clock,monitor,network,power,weather}`: status panels with Vault Boy art.
+The plugins (`anerti.menu`, `anerti.lock`, `anerti.workspaces` and the status panels) are in
+the controller's `plugins/`, with their installer, tools and notes (its `AGENTS.md`).
+`full-theme.sh` takes them from `$TERMINAL_PROTOCOL_CONTROLLER_DIR`, else from the installed
+controller (`~/.config/omarchy/plugins/anerti.terminal-protocol-controller`), and stops
+with the install command when there is neither. The controller sets that variable to its
+own checkout when it runs the steps.
 
 `full-theme.sh` groups them as menu = `anerti.menu`, login = `anerti.lock` + the Plymouth
 theme, and bar = every other plugin (computed, so a new plugin joins the bar group).
@@ -59,17 +52,16 @@ Widgets move between the two with their settings, so switching back and forth is
 
 | Output | Source | Rebuild |
 | ------ | ------ | ------- |
-| `plymouth/vault-tec/*`, `plymouth/preview-*.png` | `plymouth/src/*`, `logo/vaulttec-omarchy.svg`, lock plugin font | `tools/build-plymouth` (headless `chromium`, `magick`) |
+| `plymouth/vault-tec/*`, `plymouth/preview-*.png` | `plymouth/src/*` (font in `plymouth/src/fonts/`), `logo/vaulttec-omarchy.svg` | `tools/build-plymouth` (headless `chromium`, `magick`) |
 | `cursors/VaultTec` | SVGs inside `tools/build-cursors` | `tools/build-cursors` (`rsvg-convert`, `magick`) |
-| `logo/vaulttec-omarchy.svg`, its copies in `anerti.lock`, `anerti.menu` and `anerti.workspaces` (ink), `unlock.png` | `tools/build-logo` | `tools/build-logo [stroke] [gap]` (copies too); `[out] [fill]` writes one file only |
+| `logo/vaulttec-omarchy.svg`, `unlock.png`, and the copies in the controller's `anerti.lock`, `anerti.menu` and `anerti.workspaces` (ink) | `tools/build-logo` | `tools/build-logo [stroke] [gap]`; with `TERMINAL_PROTOCOL_CONTROLLER_DIR=<controller checkout>` it writes the copies too; `[out] [fill]` writes one file only |
 | `backgrounds/1-omarchy-logo.jpg` | `tools/build-wallpaper`, `logo/` | `tools/build-wallpaper` (`rsvg-convert`, `magick`) |
 | `backgrounds/3-omarchy-wordmark.jpg` | `tools/build-wallpaper-wordmark`, `logo/omarchy-wordmark.svg` (omarchy.org/brand), the built-in themes' wallpapers | `tools/build-wallpaper-wordmark` (`rsvg-convert`, `magick`) |
-| `plugins/anerti.lock/assets/please-stand-by.jpg` (greyscale, tinted at runtime) | `tools/please-stand-by.jpg` (the green original) | `tools/build-standby` (`magick`) |
 
 `tools/build-plymouth` measures every piece from the rendered mockup and writes the
 1080p layout into `vault-tec.script` at `#@LAYOUT@`. Change layout in `boot.html`, not in
-the generated script. The lock stage copies `anerti.lock`'s terminal (keep the two in
-step), and its banner lines (versions, copyright, hostname) and the init stage's footer
+the generated script. The lock stage copies `anerti.lock`'s terminal (in the controller; keep
+the two in step), and its banner lines (versions, copyright, hostname) and the init stage's footer
 are drawn at install time by `render-footer`, not baked in.
 
 ## How things get installed (and why edits do not show up)
@@ -79,9 +71,9 @@ are drawn at install time by `render-footer`, not baked in.
   "Dark Terminal Protocol"; the cursor hook matches it). If it is a copy
   instead, edits never reach it. Even through the symlink, Omarchy applies theme file
   edits only when `omarchy theme set <slug>` runs again.
-- **Plugins** are copied (rsync) into `~/.config/omarchy/plugins/<id>`.
-  `bin/vault-tec-plugins install <id>` updates one and restarts the shell. A plugin is
-  enabled only on its first install.
+- **Plugins** come from the controller (see Plugins above), which copies them into
+  `~/.config/omarchy/plugins/<id>`. An installed controller older than the move has no
+  `plugins/`: update it before running `full-theme.sh`.
 - **Cursors** go to `~/.local/share/icons/VaultTec`. The hook is copied into
   `~/.config/omarchy/hooks/{theme-set,post-boot}.d/`. A stale hook copy counts as not
   installed.
@@ -115,20 +107,6 @@ Built-in Omarchy sources to compare against: `/usr/share/omarchy/` (`bin/`, `def
 **Python tools:** `#!/usr/bin/env python3`, stdlib only, `ROOT` from `__file__`, shell
 out to `magick` / `chromium` / `rsvg-convert` via `subprocess.run(check=True)`.
 
-**Plugins:**
-- Create a new panel with `tools/clone-panel <omarchy.id> "<Vault-Tec name>"`. Like
-  `omarchy plugin clone`, it keeps the internal ids so IPC still routes through
-  `clonedFrom`, and it adds `PanelArt.qml`.
-- `PanelArt.qml` is identical in all eight panels (GIF tinted in the active theme's foreground, with a glow of it). Change it in
-  every copy, or the copies will diverge.
-- `ShareTechMono-Regular.ttf` is duplicated in `anerti.{lock,workspaces}` because
-  each plugin is installed standalone.
-- `RollWipe.qml` is identical in `anerti.menu` and `anerti.workspaces`. Keep the two copies
-  in sync.
-- `ThemePalette.qml` is identical in `anerti.{lock,menu,workspaces}`: it reads the active
-  theme's `bright_foreground`, `dark_background` and `lighter_background` from its
-  `colors.toml`, which the shell's `Color` does not expose.
-
 **Visual language:** use only `colors.toml` values: fg `#2cae2e`, bright `#d6ffe3`,
 muted `#7c9480`, accent `#ffcc33`, urgent `#ff5a3c`, background `#06170d`. Text uses
 the Share Tech Mono font with letter spacing, a soft green glow and CRT scanlines. The
@@ -139,8 +117,8 @@ mockup (`fallout.css` tokens) is the reference, and comments cite it ("as in the
 - Shell: `bash -n <file>`. `shellcheck` is not installed; keep the existing
   `# shellcheck disable=` notes accurate anyway.
 - `full-theme.sh --status` is read-only and safe. `--help` prints the header.
-- Plugins: reinstall the one you changed with `bin/vault-tec-plugins install <id>`, then
-  check it in the live shell.
+- Plugins: see the controller's `AGENTS.md`. To run `full-theme.sh` against a controller
+  checkout, set `TERMINAL_PROTOCOL_CONTROLLER_DIR`.
 - Boot screen: rebuild, look at `plymouth/preview-{lock,init}.png`, and preview it with
   `bin/vault-tec-plymouth test` (needs a text console).
 - `source omarchy-shell-config` + `commit` writes the live `~/.config/omarchy/shell.json`

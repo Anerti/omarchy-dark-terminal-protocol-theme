@@ -71,7 +71,7 @@ This theme includes four wallpapers.
 - Omarchy Shell (bar, lock screen, notifications, launcher, on-screen display, polkit, wallpaper picker)
 - Plymouth: the Omarchy terminal boot screen (passphrase prompt, then Vault Boy and INITIALIZING SYSTEM)
 - VS Code
-- Shell plugins: Pip-Boy menu, Omarchy terminal lock screen (with the PLEASE STAND BY hand-off), Vault-Tec workspaces wedge, and Vault Boy status panels (network, Bluetooth, audio, display, power, clock, weather, agents)
+- Shell plugins, from the [Terminal Protocol Controller](https://github.com/Anerti/terminal-protocol-controller): Pip-Boy menu, Omarchy terminal lock screen (with the PLEASE STAND BY hand-off), Vault-Tec workspaces wedge, and Vault Boy status panels (network, Bluetooth, audio, display, power, clock, weather, agents)
 - VaultTec mouse cursors
 - CRT effect: scanlines and vignette as an optional Hyprland screen shader
 
@@ -90,6 +90,12 @@ A theme cloned there counts as your own, so its `hyprland.lua` and terminal conf
 The commands below run from the repository folder.
 
 ### Full theme
+
+The shell plugins ship with the Terminal Protocol Controller plugin, which also adds a bar switch for each part below. Install it first:
+
+```bash
+omarchy plugin add https://github.com/Anerti/terminal-protocol-controller.git --enable
+```
 
 The colours are only part of it. `full-theme.sh` sets the theme and the cursors, then asks, one yes/no question each, whether to use the Vault-Tec version or Omarchy's built-in one of:
 
@@ -113,7 +119,7 @@ Nothing changes until you confirm the summary. Built-in disables the plugins, wh
 
 | Part | Command | Notes |
 | ---- | ------- | ----- |
-| Shell plugins | `bin/vault-tec-plugins [install\|uninstall] [id...]` | Copies `plugins/` into `~/.config/omarchy/plugins/` and restarts the shell. A plugin is enabled only on its first install. |
+| Shell plugins | the controller's `bin/vault-tec-plugins [install\|uninstall] [id...]` | Copies its `plugins/` into `~/.config/omarchy/plugins/` and restarts the shell. A plugin is enabled only on its first install. |
 | Cursors | `bin/vault-tec-cursor [install\|uninstall]` | Installs `~/.local/share/icons/VaultTec` and a hook that uses it while this theme is active. |
 | CRT effect | `bin/vault-tec-crt [on\|off\|toggle\|status]` | Scanlines and vignette as a Hyprland screen shader. It also shows in screenshots and recordings. |
 | Boot screen | `bin/vault-tec-plymouth [install\|uninstall\|test]` | Installs the `vault-tec` Plymouth theme (sudo) and rebuilds the initramfs. Its banner and footer show the Omarchy version, kernel and hostname, and are redrawn whenever the initramfs is rebuilt, including after Omarchy upgrades and kernel installs. Reinstalling only rewrites what changed, and `uninstall` restores the boot screen that was default before. `test` plays it from a text console (Ctrl+Alt+F3); its passphrase is `omarchy`. |

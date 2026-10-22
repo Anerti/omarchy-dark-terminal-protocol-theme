@@ -1,5 +1,3 @@
-# Dark Terminal Protocol — phosphor green, amber for highlights, red for the hot end.
-
 theme[main_bg]="#06170d"
 theme[main_fg]="#2cae2e"
 theme[title]="#d6ffe3"

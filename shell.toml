@@ -1,9 +1,3 @@
-# Dark Terminal Protocol — Omarchy shell surfaces.
-# Values are lifted from the HTML mockup's design tokens (assets/css/fallout.css):
-#   --fg #2cae2e, --fg-bright #d6ffe3, --fg-soft #7c9480, --accent #ffcc33,
-#   --urgent #ff5a3c, --surface-solid #081d11, --line #114116 (opaque),
-#   --line-strong #1d7221 (opaque), --sel-inverse-fg #04160b.
-
 [bar]
 background       = "#04140b"
 background-alpha = 0.9
@@ -99,11 +93,12 @@ border                    = "#1d7221"
 border-alpha              = 1.0
 scrim                     = "#020a05"
 scrim-alpha               = 0.6
-selected-background       = "#2cae2e"
+selected-background       = "#0c2a18"
 selected-background-alpha = 1.0
-selected-text             = "#04160b"
+selected-text             = "#d6ffe3"
 selected-border           = "#2cae2e"
 selected-border-alpha     = 1.0
+selected-border-width     = 1
 
 [polkit]
 background       = "#081d11"

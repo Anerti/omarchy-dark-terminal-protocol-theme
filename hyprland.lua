@@ -1,5 +1,5 @@
 local active_border_color = "rgba(2cae2eff)"
-local inactive_border_color = "rgba(114116ff)"
+local inactive_border_color = "rgba(1c5e24ff)"
 local active_shadow_color = "rgba(2cae2e40)"
 local inactive_shadow_color = "rgba(000000b8)"
 
@@ -22,13 +22,13 @@ hl.config({
       text_color_inactive = "rgb(2cae2e)",
       col = {
         active = "rgba(2cae2eff)",
-        inactive = "rgba(165717cc)",
+        inactive = "rgba(11361dcc)",
       },
     },
   },
 
   decoration = {
-    rounding = 4,
+    rounding = 0,
 
     shadow = {
       enabled = true,
@@ -40,14 +40,6 @@ hl.config({
   },
 })
 
-local home = os.getenv("HOME") or ""
-local crt_flag = io.open(home .. "/.local/state/omarchy/toggles/vault-tec-crt", "r")
-
-if crt_flag then
-  crt_flag:close()
-  hl.config({
-    decoration = {
-      screen_shader = home .. "/.local/state/omarchy/current/theme/crt.frag",
-    },
-  })
-end
+-- Solid windows, like a RobCo screen: the wallpaper must not bleed behind text.
+o.window({ tag = "terminal" }, { opacity = "1 1" })
+o.window({ tag = "default-opacity" }, { opacity = "1 1" })

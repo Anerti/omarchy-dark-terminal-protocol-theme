@@ -1,14 +1,8 @@
-# Dark Terminal Protocol — Omarchy shell surfaces.
-# Values are lifted from the HTML mockup's design tokens (assets/css/fallout.css):
-#   --fg #2cae2e, --fg-bright #d6ffe3, --fg-soft #7c9480, --accent #ffcc33,
-#   --urgent #ff5a3c, --surface-solid #081d11, --line #114116 (opaque),
-#   --line-strong #1d7221 (opaque), --sel-inverse-fg #04160b.
-
 [bar]
 background       = "#04140b"
 background-alpha = 0.9
 text             = "#2cae2e"
-active           = "#ff5a3c"
+active           = "#ffcc33"
 scale-with-font  = true
 size-horizontal  = 34
 size-vertical    = 34
@@ -56,7 +50,7 @@ base-size = 12
 background       = "#081d11"
 background-alpha = 1.0
 text             = "#2cae2e"
-border           = "#1d7221"
+border           = "#22802a"
 border-alpha     = 1.0
 border-width     = 1
 
@@ -64,15 +58,15 @@ border-width     = 1
 background       = "#081d11"
 background-alpha = 0.97
 text             = "#d6ffe3"
-border           = "#1d7221"
+border           = "#22802a"
 border-alpha     = 1.0
 border-width     = 1
 
 [notifications]
 background       = "#071a0f"
-background-alpha = 0.78
+background-alpha = 0.97
 text             = "#2cae2e"
-border           = "rgba(2cae2eff) rgba(114116ff) 0deg"
+border           = "rgba(2cae2eff) rgba(1c5e24ff) 0deg"
 border-alpha     = 1.0
 border-width     = "1 1 1 4"
 countdown        = "#2cae2e"
@@ -81,36 +75,38 @@ countdown        = "#2cae2e"
 background                = "#081d11"
 background-alpha          = 0.95
 text                      = "#2cae2e"
-border                    = "#1d7221"
+border                    = "#22802a"
 border-alpha              = 1.0
 scrim                     = "#020a05"
 scrim-alpha               = 0.6
-selected-background       = "#2cae2e"
+selected-background       = "#0c2a18"
 selected-background-alpha = 1.0
-selected-text             = "#04160b"
+selected-text             = "#d6ffe3"
 selected-border           = "#2cae2e"
 selected-border-alpha     = 1.0
+selected-border-width     = 1
 
 [menu]
 background                = "#081d11"
 background-alpha          = 1.0
 text                      = "#2cae2e"
-border                    = "#1d7221"
+border                    = "#22802a"
 border-alpha              = 1.0
 scrim                     = "#020a05"
 scrim-alpha               = 0.6
-selected-background       = "#2cae2e"
+selected-background       = "#0c2a18"
 selected-background-alpha = 1.0
-selected-text             = "#04160b"
+selected-text             = "#d6ffe3"
 selected-border           = "#2cae2e"
 selected-border-alpha     = 1.0
+selected-border-width     = 1
 
 [polkit]
 background       = "#081d11"
 background-alpha = 1.0
 text             = "#2cae2e"
 text-error       = "#ff5a3c"
-border           = "#1d7221"
+border           = "#22802a"
 border-error     = "#ff5a3c"
 border-alpha     = 1.0
 scrim            = "#020a05"
@@ -119,11 +115,11 @@ accent           = "#2cae2e"
 
 [lock]
 background       = "#04120a"
-background-alpha = 0.72
+background-alpha = 0.94
 text             = "#d6ffe3"
 placeholder      = "#7c9480"
 text-error       = "#ff5a3c"
-border           = "#1d7221"
+border           = "#22802a"
 border-active    = "#2cae2e"
 border-error     = "#ff5a3c"
 border-alpha     = 1.0

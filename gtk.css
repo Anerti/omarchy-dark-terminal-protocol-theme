@@ -1,0 +1,54 @@
+/* Libadwaita (GTK 4) colors, so Files and other GNOME apps sit on the same phosphor screen.
+   Link it once: ln -sf ~/.local/state/omarchy/current/theme/gtk.css ~/.config/gtk-4.0/gtk.css
+   Themes without a gtk.css leave the link dangling, which GTK ignores. */
+:root {
+  --accent-bg-color: #2cae2e;
+  --accent-fg-color: #04160b;
+  --accent-color: #6bc66d;
+
+  --destructive-bg-color: #ff5a3c;
+  --destructive-fg-color: #06170d;
+  --destructive-color: #ff8a70;
+  --success-bg-color: #2cae2e;
+  --success-fg-color: #04160b;
+  --success-color: #6bc66d;
+  --warning-bg-color: #ffcc33;
+  --warning-fg-color: #06170d;
+  --warning-color: #ffcc33;
+  --error-bg-color: #ff5a3c;
+  --error-fg-color: #06170d;
+  --error-color: #ff8a70;
+
+  --window-bg-color: #06170d;
+  --window-fg-color: #2cae2e;
+  --view-bg-color: #06170d;
+  --view-fg-color: #2cae2e;
+  --headerbar-bg-color: #020a05;
+  --headerbar-fg-color: #2cae2e;
+  --headerbar-border-color: #1c5e24;
+  --headerbar-backdrop-color: #020a05;
+  --headerbar-shade-color: rgb(0 0 0 / 50%);
+  --sidebar-bg-color: #04120a;
+  --sidebar-fg-color: #2cae2e;
+  --sidebar-backdrop-color: #04120a;
+  --sidebar-border-color: #1c5e24;
+  --sidebar-shade-color: rgb(0 0 0 / 50%);
+  --secondary-sidebar-bg-color: #04120a;
+  --secondary-sidebar-fg-color: #2cae2e;
+  --secondary-sidebar-backdrop-color: #04120a;
+  --card-bg-color: #0c2a18;
+  --card-fg-color: #2cae2e;
+  --dialog-bg-color: #081d11;
+  --dialog-fg-color: #2cae2e;
+  --popover-bg-color: #081d11;
+  --popover-fg-color: #2cae2e;
+  --thumbnail-bg-color: #0c2a18;
+  --thumbnail-fg-color: #2cae2e;
+  --border-color: #1c5e24;
+}
+
+/* Selected rows and text read like the terminal's selection. */
+selection {
+  background-color: #11361d;
+  color: #d6ffe3;
+}

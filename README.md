@@ -8,7 +8,7 @@ A dark Omarchy theme inspired by the RobCo terminals and Pip-Boy of the Fallout 
 
 ![Dark Terminal Protocol](preview.png)
 
-The theme on its own, with Omarchy's bar. The Vault-Tec bar, the Pip-Boy menu and the status panels come with the [Terminal Protocol Controller](https://github.com/Anerti/terminal-protocol-controller).
+The theme on its own, with Omarchy's bar: Neovim, btop, eza and Files, all on solid phosphor-green windows. The Vault-Tec bar, the Pip-Boy menu and the status panels come with the [Terminal Protocol Controller](https://github.com/Anerti/terminal-protocol-controller).
 
 ## Wallpaper Gallery
 
@@ -29,8 +29,12 @@ This theme includes four wallpapers.
 ![](https://placehold.co/120x24/2cae2e/000000?text=%232CAE2E)
 ![](https://placehold.co/120x24/6bc66d/000000?text=%236BC66D)
 ![](https://placehold.co/120x24/d6ffe3/000000?text=%23D6FFE3)
+![](https://placehold.co/120x24/41ff41/000000?text=%2341FF41)
 ![](https://placehold.co/120x24/ffcc33/000000?text=%23FFCC33)
 ![](https://placehold.co/120x24/ff5a3c/000000?text=%23FF5A3C)
+![](https://placehold.co/120x24/33bfa0/000000?text=%2333BFA0)
+![](https://placehold.co/120x24/b7e04a/000000?text=%23B7E04A)
+![](https://placehold.co/120x24/8cebd8/000000?text=%238CEBD8)
 
 ## Components
 
@@ -39,7 +43,8 @@ This theme includes four wallpapers.
 - Chromium
 - Foot
 - Ghostty
-- Hyprland (4px radius, green glow)
+- GTK 4 / libadwaita apps such as Files (one-time link, see below)
+- Hyprland (square corners, green glow, solid windows: working copy only, see below)
 - Kitty
 - Neovim
 - Omarchy Shell (bar, lock screen, notifications, launcher, on-screen display, polkit, wallpaper picker)
@@ -49,12 +54,24 @@ This theme includes four wallpapers.
 
 ## Installation
 
-Clone the repository, link it into your Omarchy themes directory and set it:
+Install it like any Omarchy theme. This clones it into `~/.config/omarchy/themes/dark-terminal-protocol` and applies it:
 
 ```bash
-git clone <repo-url> ~/Work/dark-terminal-protocol
+omarchy theme install https://github.com/Anerti/omarchy-dark-terminal-protocol-theme.git
+```
+
+Omarchy rebuilds an installed theme's Lua and terminal files from `colors.toml`, so the colors match everywhere, but the square corners, green glow and solid windows from `hyprland.lua` need a working copy instead:
+
+```bash
+git clone https://github.com/Anerti/omarchy-dark-terminal-protocol-theme.git ~/Work/dark-terminal-protocol
 ln -s ~/Work/dark-terminal-protocol ~/.config/omarchy/themes/dark-terminal-protocol
 omarchy theme set dark-terminal-protocol
+```
+
+GTK 4 apps read only one stylesheet, so they need a one-time link to the current theme's. Themes without a `gtk.css` leave it dangling, which GTK ignores:
+
+```bash
+ln -sf ~/.local/state/omarchy/current/theme/gtk.css ~/.config/gtk-4.0/gtk.css
 ```
 
 ### Vault-Tec extras

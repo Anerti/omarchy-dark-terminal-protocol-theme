@@ -1,5 +1,5 @@
 local active_border_color = "rgba(2cae2eff)"
-local inactive_border_color = "rgba(114116ff)"
+local inactive_border_color = "rgba(1c5e24ff)"
 local active_shadow_color = "rgba(2cae2e40)"
 local inactive_shadow_color = "rgba(000000b8)"
 
@@ -28,7 +28,7 @@ hl.config({
   },
 
   decoration = {
-    rounding = 4,
+    rounding = 0,
 
     shadow = {
       enabled = true,
@@ -39,3 +39,7 @@ hl.config({
     },
   },
 })
+
+-- Solid windows, like a RobCo screen: the wallpaper must not bleed behind text.
+o.window({ tag = "terminal" }, { opacity = "1 1" })
+o.window({ tag = "default-opacity" }, { opacity = "1 1" })

@@ -64,9 +64,9 @@ border-width     = 1
 
 [notifications]
 background       = "#071a0f"
-background-alpha = 0.78
+background-alpha = 0.97
 text             = "#2cae2e"
-border           = "rgba(2cae2eff) rgba(114116ff) 0deg"
+border           = "rgba(2cae2eff) rgba(1c5e24ff) 0deg"
 border-alpha     = 1.0
 border-width     = "1 1 1 4"
 countdown        = "#2cae2e"
@@ -115,7 +115,7 @@ accent           = "#2cae2e"
 
 [lock]
 background       = "#04120a"
-background-alpha = 0.72
+background-alpha = 0.94
 text             = "#d6ffe3"
 placeholder      = "#7c9480"
 text-error       = "#ff5a3c"

@@ -39,15 +39,3 @@ hl.config({
     },
   },
 })
-
-local home = os.getenv("HOME") or ""
-local crt_flag = io.open(home .. "/.local/state/omarchy/toggles/vault-tec-crt", "r")
-
-if crt_flag then
-  crt_flag:close()
-  hl.config({
-    decoration = {
-      screen_shader = home .. "/.local/state/omarchy/current/theme/crt.frag",
-    },
-  })
-end

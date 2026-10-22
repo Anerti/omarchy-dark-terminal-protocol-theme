@@ -25,7 +25,7 @@ This theme includes four wallpapers.
 
 ![](https://placehold.co/120x24/06170d/2cae2e?text=%2306170D)
 ![](https://placehold.co/120x24/0c2a18/6bc66d?text=%230C2A18)
-![](https://placehold.co/120x24/165717/d6ffe3?text=%23165717)
+![](https://placehold.co/120x24/11361d/d6ffe3?text=%2311361D)
 ![](https://placehold.co/120x24/2cae2e/000000?text=%232CAE2E)
 ![](https://placehold.co/120x24/6bc66d/000000?text=%236BC66D)
 ![](https://placehold.co/120x24/d6ffe3/000000?text=%23D6FFE3)

@@ -22,7 +22,7 @@ hl.config({
       text_color_inactive = "rgb(2cae2e)",
       col = {
         active = "rgba(2cae2eff)",
-        inactive = "rgba(165717cc)",
+        inactive = "rgba(11361dcc)",
       },
     },
   },

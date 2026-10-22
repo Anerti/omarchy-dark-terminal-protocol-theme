@@ -24,10 +24,10 @@ background = "#2cae2e"
 
 [colors.selection]
 text = "#d6ffe3"
-background = "#165717"
+background = "#11361d"
 
 [colors.normal]
-black = "#0c2a18"
+black = "#2a5236"
 red = "#ff5a3c"
 green = "#2cae2e"
 yellow = "#ffcc33"
